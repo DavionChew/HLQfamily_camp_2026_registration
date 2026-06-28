@@ -170,12 +170,27 @@ function recordScan(req) {
       else { sh.getRange(rowNum, col + 1).setValue(now); }
     }
 
-    // ROOM CHECK-IN: stamp the actual room number from the Rooms tab (by RoomGroup).
-    // You type the real number on the Rooms tab once at 3pm; it lands here on scan.
-    if (cp.type === 'room') {
-      if (!room && roomGroup) {
+    // ROOM KEY (领房卡 / 退房卡) — handled per FAMILY/ROOM: one scan covers the whole
+    // RoomGroup. So scanning any one member marks everyone in that room as done, and
+    // (for check-in) stamps the room number to all of them. Kids need not be scanned here.
+    let famCount = 0;
+    if (cp.type === 'room' || cp.type === 'checkout') {
+      if (cp.type === 'room' && !room && roomGroup) {          // look up the actual room number
         const rn = lookupRoomNumber_(ss, roomGroup);
-        if (rn) { room = rn; sh.getRange(rowNum, idx['Room'] + 1).setValue(rn); }
+        if (rn) room = rn;
+      }
+      if (roomGroup) {
+        const g = String(roomGroup).trim();
+        for (let r = 1; r < data.length; r++) {
+          if (String(data[r][idx['RoomGroup']] || '').trim() !== g) continue;
+          famCount++;
+          if (!data[r][col]) sh.getRange(r + 1, col + 1).setValue(now);                 // mark whole room
+          if (cp.type === 'room' && room && idx['Room'] !== undefined && !data[r][idx['Room']]) {
+            sh.getRange(r + 1, idx['Room'] + 1).setValue(room);                          // fill room # for all
+          }
+        }
+      } else if (cp.type === 'room' && room && !row[idx['Room']]) {
+        sh.getRange(rowNum, idx['Room'] + 1).setValue(room);   // no group: just this person
       }
     }
 
@@ -184,7 +199,7 @@ function recordScan(req) {
     return {
       ok: true,
       id: parsed.id, name: name, group: group, role: role,
-      room: room, roomGroup: roomGroup,
+      room: room, roomGroup: roomGroup, family: famCount,
       roomPending: (cp.type === 'room' && !room),   // true = room number not set yet (before 3pm)
       busBack: busBack,
       checkpoint: cp.label, type: cp.type,
@@ -251,39 +266,48 @@ function getStats(req) {
     const v = data[r][hc]; if (v && hallCounts[v] !== undefined) hallCounts[v]++;
   }
 
-  // ---- outstanding lists: bus boarding & room-key collection ----
+  // ---- outstanding lists ----
   const labelOf = k => (CHECKPOINTS.find(c => c.key === k) || {}).label;
-  const busToCol = idx[labelOf('bus_to')], busBackCol = idx[labelOf('bus_back')], checkinCol = idx[labelOf('checkin')];
+  const busToCol = idx[labelOf('bus_to')], busBackCol = idx[labelOf('bus_back')];
   const nm = i => String(data[i][idx['Name']] || '');
   const gp = i => String(data[i][idx['Group']] || '');
-  const rg = i => (idx['RoomGroup'] !== undefined ? String(data[i][idx['RoomGroup']] || '') : '');
   const isDone = v => v !== '' && v != null;
 
+  // bus is PER PERSON (everyone incl. kids is scanned)
   const busTo = { total: 0, done: 0, pending: [] };
   const busBack = { total: 0, done: 0, pending: [] };
-  const key = { total: 0, done: 0, pending: [] };
   for (let r = 1; r < data.length; r++) {
     if (!String(data[r][idx['ID']]).trim()) continue;
-    // bus to venue (only those on the bus list)
     if (isYes_(data[r][idx['BusTo']])) {
       busTo.total++;
       if (busToCol !== undefined && isDone(data[r][busToCol])) busTo.done++;
       else busTo.pending.push(nm(r) + (gp(r) ? ' · ' + gp(r) : ''));
     }
-    // bus return
     if (isYes_(data[r][idx['BusBack']])) {
       busBack.total++;
       if (busBackCol !== undefined && isDone(data[r][busBackCol])) busBack.done++;
       else busBack.pending.push(nm(r) + (gp(r) ? ' · ' + gp(r) : ''));
     }
-    // room key (everyone)
-    key.total++;
-    if (checkinCol !== undefined && isDone(data[r][checkinCol])) key.done++;
-    else key.pending.push(nm(r) + (rg(r) ? ' · ' + rg(r) : ''));
+  }
+
+  // room keys are PER ROOM (family unit) — read the Rooms tab counts
+  const keyOut = { total: 0, done: 0, pending: [] };       // 领房卡
+  const keyReturn = { total: 0, done: 0, pending: [] };    // 退房卡
+  const rmSh = ss.getSheetByName(SHEET.ROOMS);
+  if (rmSh) {
+    const rm = rmSh.getDataRange().getValues();   // cols: RoomGroup,RoomNumber,Members,Assigned,KeyIssued,KeyReturned,Notes
+    for (let r = 1; r < rm.length; r++) {
+      const grp = String(rm[r][0] || '').trim(); if (!grp) continue;
+      const label = grp + (rm[r][2] ? ' · ' + rm[r][2] : '') + (rm[r][1] ? ' (Rm ' + rm[r][1] + ')' : '');
+      keyOut.total++;
+      if ((Number(rm[r][4]) || 0) > 0) keyOut.done++; else keyOut.pending.push(label);
+      keyReturn.total++;
+      if ((Number(rm[r][5]) || 0) > 0) keyReturn.done++; else keyReturn.pending.push(label);
+    }
   }
 
   return { ok: true, total: total, organisers: organisers, rows: rows, halls: hallCounts,
-           busTo: busTo, busBack: busBack, key: key,
+           busTo: busTo, busBack: busBack, keyOut: keyOut, keyReturn: keyReturn,
            updated: fmt_(new Date(), ss.getSpreadsheetTimeZone()) };
 }
 
@@ -353,7 +377,7 @@ function setupSheet() {
 
   // validation dropdowns
   const lastR = 1000;
-  setValidation_(at, 'Role', headers, ['Attendee', 'Organiser'], lastR);
+  setValidation_(at, 'Role', headers, ['Attendee', 'Organiser', 'Leader'], lastR);
   setValidation_(at, 'BusTo', headers, ['Y', 'N'], lastR);
   setValidation_(at, 'BusBack', headers, ['Y', 'N'], lastR);
   setValidation_(at, HALL_COL, headers, HALLS, lastR);
@@ -370,17 +394,18 @@ function setupSheet() {
   // One row per planned room. Fill RoomGroup + planned members BEFORE camp.
   // At 3pm, type the real RoomNumber once per row — it auto-stamps to each member on check-in.
   const rgCol = colLetter_(PROFILE_COLS.indexOf('RoomGroup') + 1);                 // Attendees RoomGroup col
-  const ckCol = colLetter_(PROFILE_COLS.length + CHECKPOINTS.findIndex(c => c.key === 'checkin') + 1); // checkin col
+  const ckCol = colLetter_(PROFILE_COLS.length + CHECKPOINTS.findIndex(c => c.key === 'checkin') + 1);  // 领房卡 col
+  const coCol = colLetter_(PROFILE_COLS.length + CHECKPOINTS.findIndex(c => c.key === 'checkout') + 1); // 退房卡 col
   let rm = ss.getSheetByName(SHEET.ROOMS) || ss.insertSheet(SHEET.ROOMS);
   if (!rm.getRange(1, 1).getValue()) {
-    rm.getRange(1, 1, 1, 6).setValues([['RoomGroup', 'RoomNumber (fill at 3pm)', 'Planned members', 'Assigned (auto)', 'KeyIssued (auto)', 'Notes']]);
+    rm.getRange(1, 1, 1, 7).setValues([['RoomGroup', 'RoomNumber (fill at 3pm)', 'Planned members', 'Assigned (auto)', 'KeyIssued (auto)', 'KeyReturned (auto)', 'Notes']]);
     rm.getRange(2, 1, 2, 3).setValues([['R01', '', '陈大文 + family'], ['R02', '', '林美丽']]);
     rm.setFrozenRows(1);
-    rm.getRange(1, 1, 1, 6).setFontWeight('bold').setBackground('#5f6368').setFontColor('#fff');
-    for (let r = 2; r <= 3; r++) {
-      rm.getRange(r, 4).setFormula('=COUNTIF(Attendees!$' + rgCol + '$2:$' + rgCol + ', A' + r + ')');
-      rm.getRange(r, 5).setFormula('=COUNTIFS(Attendees!$' + rgCol + '$2:$' + rgCol + ', A' + r + ', Attendees!$' + ckCol + '$2:$' + ckCol + ', "<>")');
-    }
+    rm.getRange(1, 1, 1, 7).setFontWeight('bold').setBackground('#5f6368').setFontColor('#fff');
+    // auto-fill counts for ALL room rows you add (no need to drag formulas)
+    rm.getRange('D2').setFormula('=ARRAYFORMULA(IF(A2:A="","",COUNTIF(Attendees!$' + rgCol + '$2:$' + rgCol + ',A2:A)))');
+    rm.getRange('E2').setFormula('=ARRAYFORMULA(IF(A2:A="","",COUNTIFS(Attendees!$' + rgCol + '$2:$' + rgCol + ',A2:A,Attendees!$' + ckCol + '$2:$' + ckCol + ',"<>")))');
+    rm.getRange('F2').setFormula('=ARRAYFORMULA(IF(A2:A="","",COUNTIFS(Attendees!$' + rgCol + '$2:$' + rgCol + ',A2:A,Attendees!$' + coCol + '$2:$' + coCol + ',"<>")))');
     rm.setColumnWidth(2, 160); rm.setColumnWidth(3, 200);
   }
 
@@ -445,17 +470,23 @@ function buildDashboard_(ss, headers) {
   d.getRange('F5').setFormula('="已上车 " & COUNTIFS(' + rng(busToFlag) + ',"Y",' + rng(busToScan) + ',"<>") & " / " & COUNTIF(' + rng(busToFlag) + ',"Y")').setFontWeight('bold');
   d.getRange('F6').setFormula('=IFERROR(FILTER(' + rng(nameCol) + '&" · "&' + rng(grpCol) + ', ' + rng(busToFlag) + '="Y", ' + rng(busToScan) + '=""), "✅ 全到齐 All aboard")');
 
-  // 🔑 房卡 — 还没领取
-  d.getRange('H4').setValue('🔑 未领房卡 No room key yet').setFontWeight('bold').setBackground('#fbbc04');
-  d.getRange('H5').setFormula('="已领 " & COUNTA(' + rng(checkinCol) + ') & " / " & ' + totalRef).setFontWeight('bold');
-  d.getRange('H6').setFormula('=IFERROR(FILTER(' + rng(nameCol) + '&" · "&' + rng(rgCol) + ', ' + rng(checkinCol) + '="", ' + rng(idCol) + '<>""), "✅ 全部领取 All collected")');
+  // 🔑 领房卡 — 还没领 (按房间/家庭，一间一行)
+  const rmRooms = 'COUNTA(Rooms!$A$2:$A)';
+  d.getRange('H4').setValue('🔑 未领房卡 No key yet (by room)').setFontWeight('bold').setBackground('#fbbc04');
+  d.getRange('H5').setFormula('="已领 " & COUNTIF(Rooms!$E$2:$E,">0") & " / " & ' + rmRooms + ' & " 间 rooms"').setFontWeight('bold');
+  d.getRange('H6').setFormula('=IFERROR(FILTER(Rooms!A2:A&" "&Rooms!B2:B&" · "&Rooms!C2:C, Rooms!E2:E=0, Rooms!A2:A<>""), "✅ 全部领取 All collected")');
 
-  // 🚌 返程巴士 — 还没上车
-  d.getRange('J4').setValue('🚌 返程未上车 Return bus — NOT boarded').setFontWeight('bold').setBackground('#fbbc04');
-  d.getRange('J5').setFormula('="已上车 " & COUNTIFS(' + rng(busBackFlag) + ',"Y",' + rng(busBackScan) + ',"<>") & " / " & COUNTIF(' + rng(busBackFlag) + ',"Y")').setFontWeight('bold');
-  d.getRange('J6').setFormula('=IFERROR(FILTER(' + rng(nameCol) + '&" · "&' + rng(grpCol) + ', ' + rng(busBackFlag) + '="Y", ' + rng(busBackScan) + '=""), "✅ 全到齐 All aboard")');
+  // 🔑 退房卡 — 还没还 (按房间/家庭)
+  d.getRange('J4').setValue('🔑 未还房卡 Key not returned (by room)').setFontWeight('bold').setBackground('#fbbc04');
+  d.getRange('J5').setFormula('="已还 " & COUNTIF(Rooms!$F$2:$F,">0") & " / " & ' + rmRooms + ' & " 间 rooms"').setFontWeight('bold');
+  d.getRange('J6').setFormula('=IFERROR(FILTER(Rooms!A2:A&" "&Rooms!B2:B&" · "&Rooms!C2:C, Rooms!F2:F=0, Rooms!A2:A<>""), "✅ 全部归还 All returned")');
 
-  d.setColumnWidth(1, 230); d.setColumnWidth(6, 230); d.setColumnWidth(8, 230); d.setColumnWidth(10, 230);
+  // 🚌 返程巴士 — 还没上车 (按人)
+  d.getRange('L4').setValue('🚌 返程未上车 Return bus — NOT boarded').setFontWeight('bold').setBackground('#fbbc04');
+  d.getRange('L5').setFormula('="已上车 " & COUNTIFS(' + rng(busBackFlag) + ',"Y",' + rng(busBackScan) + ',"<>") & " / " & COUNTIF(' + rng(busBackFlag) + ',"Y")').setFontWeight('bold');
+  d.getRange('L6').setFormula('=IFERROR(FILTER(' + rng(nameCol) + '&" · "&' + rng(grpCol) + ', ' + rng(busBackFlag) + '="Y", ' + rng(busBackScan) + '=""), "✅ 全到齐 All aboard")');
+
+  d.setColumnWidth(1, 230); d.setColumnWidth(6, 230); d.setColumnWidth(8, 250); d.setColumnWidth(10, 250); d.setColumnWidth(12, 230);
   d.setFrozenRows(4);
 }
 

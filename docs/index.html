@@ -201,8 +201,11 @@ function render(r){
   if(r.type==='room' && r.room) html+='<div class="room">🔑 Room '+esc(r.room)+'</div>';
   else if(r.type==='room' && r.roomPending) html+='<div class="room" style="font-size:22px;color:#f9a825">🔑 房号未定 Room TBD'+(r.roomGroup?' ('+esc(r.roomGroup)+')':'')+'</div>';
   if(r.type==='hall' && r.hall) html+='<span class="pill hall">'+esc(r.hall)+'</span>';
-  if(r.type==='checkout') html+='<div class="room">🔑 收回房卡 Collect key</div>';
-  if(String(r.role||'').toLowerCase().indexOf('organ')>-1) html+='<span class="pill org">同工 Organiser</span>';
+  if(r.type==='checkout') html+='<div class="room">🔑 收回房卡 Return key</div>';
+  if((r.type==='room'||r.type==='checkout') && r.family>1) html+='<div class="sub">👪 同房 '+r.family+' 人已一起登记 whole room done</div>';
+  var rl=String(r.role||'').toLowerCase();
+  if(rl.indexOf('organ')>-1) html+='<span class="pill org">同工 Organiser</span>';
+  else if(rl.indexOf('lead')>-1) html+='<span class="pill org">组长 Leader</span>';
   if(r.busBack && r.type==='checkout') html+='<div class="sub">🚌 返程乘车 — remind to gather for bus</div>';
   if(r.duplicate && r.prevTime) html+='<div class="sub">first at '+r.prevTime+'</div>';
   html+='<div class="sub">'+r.time+'</div></div>';
@@ -247,7 +250,8 @@ function openStats(){ $('statsOv').style.display='block'; $('statsBody').innerHT
          '<td class="n">'+x.count+'</td><td class="n">'+pct+'%</td></tr>'; });
     h+='</table>';
     h+=pendingBlock('🚌 去程未上车 Bus to venue — NOT boarded', r.busTo);
-    h+=pendingBlock('🔑 未领房卡 No room key yet', r.key);
+    h+=pendingBlock('🔑 未领房卡 No key yet (by room)', r.keyOut);
+    h+=pendingBlock('🔑 未还房卡 Key not returned (by room)', r.keyReturn);
     h+=pendingBlock('🚌 返程未上车 Return bus — NOT boarded', r.busBack);
     h+='<h4>专题讲座 Seminar halls</h4><table>';
     Object.keys(r.halls).forEach(function(k){ h+='<tr><td>'+esc(k)+'</td><td class="n">'+r.halls[k]+'</td></tr>'; });

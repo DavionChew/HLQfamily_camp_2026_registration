@@ -13,7 +13,7 @@ HELP = {
  'Token':'Leave blank — auto-generated security code',
  'Name':'Full name (Chinese or English) — REQUIRED',
  'Phone':'Contact number',
- 'Role':'Attendee or Organiser',
+ 'Role':'Attendee / Organiser / Leader (组长)',
  'Group':'小组 / cell group / family',
  'BusTo':'Y if taking the church bus TO the venue, else N',
  'BusBack':'Y if taking the bus BACK to church, else N',
@@ -45,7 +45,7 @@ for r, row in enumerate(examples, 3):
 def add_dv(col_letter, values):
     dv = DataValidation(type='list', formula1='"%s"' % ','.join(values), allow_blank=True)
     ws.add_data_validation(dv); dv.add('%s3:%s1000' % (col_letter, col_letter))
-add_dv('E', ['Attendee', 'Organiser'])
+add_dv('E', ['Attendee', 'Organiser', 'Leader'])
 add_dv('G', ['Y', 'N'])
 add_dv('H', ['Y', 'N'])
 

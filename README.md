@@ -88,9 +88,20 @@ Green = checked in (room shows at check-in); amber = already done; 🔁 = hall s
 
 ## Live "who's outstanding" views (Dashboard tab + 📊 Stats)
 Both update automatically as people are scanned:
-- **🚌 去程未上车 / 返程未上车** — among the people on the bus list, who has **not** boarded
-  yet (plus an "x / y boarded" count). Use this to confirm everyone's aboard before departing.
-- **🔑 未领房卡** — who has **not** collected their room key yet (plus "x / y issued").
+- **🚌 去程未上车 / 返程未上车** (per person) — among the people on the bus list, who has
+  **not** boarded yet (plus "x / y boarded"). Confirm all aboard before departing.
+- **🔑 未领房卡 / 未还房卡** (per room) — which **rooms/families** have not collected /
+  returned their key yet (plus "x / y rooms"). Keys are handled per family, not per head.
+
+### Room keys are per-family
+A whole family shares one **RoomGroup**. Scanning **any one member** at check-in (or check-out)
+marks the **entire room** done and stamps the room number to everyone in it — so you only scan
+one person per family for the key, and kids never need a room number entered. (Everyone is still
+scanned individually at the session checkpoints.)
+
+### Roles
+`Attendee`, `Organiser`, `Leader` (组长). Organisers and Leaders are the people who scan
+(give them the link + passcode); Leaders show a 组长 badge when scanned.
 
 ## Setup dependencies (for the tag generator)
 ```bash
