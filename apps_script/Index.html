@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html>
+<head>
+<base target="_top">
+<meta charset="utf-8">
+<title>Camp Check-in 报到</title>
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<style>
+  :root{ --blue:#1a73e8; --green:#2e7d32; --amber:#f9a825; --red:#c62828; --bg:#0f1115; --card:#1b1f27; --line:#2a2f3a; }
+  *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  body{ margin:0; font-family:-apple-system,Segoe UI,Roboto,"PingFang SC","Microsoft YaHei",sans-serif;
+        background:var(--bg); color:#e8eaed; }
+  header{ background:var(--blue); color:#fff; padding:10px 14px; display:flex; align-items:center; gap:8px;
+          position:sticky; top:0; z-index:5; }
+  header b{ font-size:16px; } header .who{ margin-left:auto; font-size:12px; opacity:.85; }
+  .wrap{ padding:12px; max-width:560px; margin:0 auto; }
+  select,input,button{ font-size:16px; }
+  select,input{ width:100%; padding:12px; border-radius:10px; border:1px solid var(--line);
+                background:var(--card); color:#fff; margin:6px 0; }
+  label{ font-size:12px; color:#9aa0a6; text-transform:uppercase; letter-spacing:.04em; }
+  .btn{ display:block; width:100%; padding:14px; border:0; border-radius:12px; background:var(--blue); color:#fff;
+        font-weight:700; margin:8px 0; cursor:pointer; }
+  .btn.gray{ background:#3c4250; } .btn.green{ background:var(--green); } .btn.red{ background:var(--red); }
+  .halls{ display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; margin:8px 0; }
+  .hall{ padding:16px 6px; text-align:center; border-radius:12px; background:var(--card); border:2px solid var(--line);
+         font-weight:700; cursor:pointer; }
+  .hall.sel{ border-color:var(--green); background:#16321c; }
+  #reader{ width:100%; border-radius:12px; overflow:hidden; background:#000; }
+  .card{ border-radius:14px; padding:16px; margin:10px 0; background:var(--card); border:1px solid var(--line); }
+  .result{ text-align:center; }
+  .result.ok{ background:#16321c; border-color:var(--green); }
+  .result.dup{ background:#3a2f12; border-color:var(--amber); }
+  .result.err{ background:#3a1717; border-color:var(--red); }
+  .result .nm{ font-size:26px; font-weight:800; margin:4px 0; }
+  .result .sub{ font-size:14px; color:#cfd3da; }
+  .room{ font-size:40px; font-weight:900; margin:8px 0; letter-spacing:.02em; }
+  .pill{ display:inline-block; padding:3px 10px; border-radius:999px; font-size:12px; font-weight:700; margin:2px; }
+  .pill.bus{ background:#0d3b66; } .pill.org{ background:#5b2a86; } .pill.hall{ background:#0c5d4a; }
+  .recent .row{ display:flex; gap:8px; font-size:13px; padding:6px 0; border-bottom:1px solid var(--line); }
+  .recent .row .t{ color:#9aa0a6; width:62px; } .recent .row .s{ margin-left:auto; }
+  .muted{ color:#9aa0a6; font-size:13px; }
+  .overlay{ position:fixed; inset:0; background:rgba(10,12,16,.96); z-index:20; padding:16px; overflow:auto; }
+  table{ width:100%; border-collapse:collapse; font-size:14px; }
+  td,th{ padding:8px 6px; border-bottom:1px solid var(--line); text-align:left; }
+  th{ color:#9aa0a6; font-weight:600; } td.n{ text-align:right; font-variant-numeric:tabular-nums; }
+  .bar{ height:6px; border-radius:4px; background:#2a2f3a; overflow:hidden; margin-top:3px; }
+  .bar > i{ display:block; height:100%; background:var(--green); }
+  .tabs{ display:flex; gap:6px; margin:8px 0; }
+  .tabs .btn{ margin:0; }
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="login" class="overlay">
+  <div class="wrap">
+    <h2>🏕 Camp Check-in 报到系统</h2>
+    <p class="muted">Organiser sign-in · 同工登录</p>
+    <label>Your name 你的名字</label>
+    <input id="orgName" placeholder="e.g. David">
+    <label>Passcode 密码</label>
+    <input id="orgPass" type="password" placeholder="passcode">
+    <button class="btn" onclick="doLogin()">Enter 进入</button>
+    <p id="loginErr" class="muted" style="color:#ff8a80"></p>
+  </div>
+</div>
+
+<header>
+  <b>🏕 Check-in</b>
+  <span class="who" id="who"></span>
+</header>
+
+<div class="wrap">
+  <label>Checkpoint 当前环节</label>
+  <select id="cp" onchange="onCpChange()"></select>
+
+  <!-- hall selector (seminar only) -->
+  <div id="hallBox" style="display:none">
+    <label>Which hall? 哪个讲座厅</label>
+    <div class="halls" id="halls"></div>
+  </div>
+
+  <div class="tabs">
+    <button class="btn" id="camBtn" onclick="toggleCam()">📷 Start camera 开始扫描</button>
+    <button class="btn gray" onclick="openStats()">📊 Stats</button>
+  </div>
+
+  <div id="reader"></div>
+
+  <!-- result -->
+  <div id="resultBox"></div>
+
+  <!-- manual -->
+  <div class="card">
+    <label>Manual 手动输入 (ID or name)</label>
+    <input id="manualQ" placeholder="C001 or name…" oninput="manualSearchDebounced()">
+    <div id="manualResults"></div>
+  </div>
+
+  <div class="card recent">
+    <label>Recent 最近</label>
+    <div id="recent"><span class="muted">No scans yet.</span></div>
+  </div>
+</div>
+
+<!-- STATS overlay -->
+<div id="statsOv" class="overlay" style="display:none">
+  <div class="wrap">
+    <button class="btn gray" onclick="closeStats()">✕ Close</button>
+    <h3>📊 Live stats</h3>
+    <div id="statsBody"><span class="muted">Loading…</span></div>
+  </div>
+</div>
+
+<script>
+var CFG=null, html5=null, scanning=false, lastCode='', lastAt=0, selectedHall='';
+function $(id){ return document.getElementById(id); }
+function gcall(fn,arg){ return new Promise(function(res,rej){
+  google.script.run.withSuccessHandler(res).withFailureHandler(rej)[fn](arg); }); }
+function save(k,v){ try{ localStorage.setItem(k,v);}catch(e){} }
+function load(k){ try{ return localStorage.getItem(k)||'';}catch(e){ return ''; } }
+
+// ---------- login ----------
+window.onload=function(){
+  $('orgName').value=load('orgName');
+  if(load('pass')){ $('orgPass').value=load('pass'); }
+  gcall('getConfig').then(function(c){ CFG=c; buildCp(); buildHalls();
+    if(load('pass') && load('orgName')) doLogin(true); });
+};
+function doLogin(silent){
+  var name=$('orgName').value.trim(), pass=$('orgPass').value.trim();
+  if(!name||!pass){ if(!silent) $('loginErr').textContent='Enter name and passcode.'; return; }
+  gcall('getStats',{pass:pass}).then(function(r){
+    if(r && r.ok){ save('orgName',name); save('pass',pass);
+      $('who').textContent=name; $('login').style.display='none'; }
+    else { $('loginErr').textContent='Wrong passcode 密码错误'; }
+  }).catch(function(){ $('loginErr').textContent='Network error, retry.'; });
+}
+
+// ---------- checkpoint + halls ----------
+function buildCp(){ var s=$('cp'); s.innerHTML='';
+  CFG.checkpoints.forEach(function(c){ var o=document.createElement('option');
+    o.value=c.key; o.textContent=c.label; s.appendChild(o); });
+  var saved=load('cp'); if(saved) s.value=saved; onCpChange(); }
+function curCp(){ var k=$('cp').value; return CFG.checkpoints.find(function(c){return c.key===k;}); }
+function onCpChange(){ save('cp',$('cp').value);
+  $('hallBox').style.display = (curCp()&&curCp().type==='hall')?'block':'none'; }
+function buildHalls(){ var h=$('halls'); h.innerHTML='';
+  CFG.halls.forEach(function(name){ var d=document.createElement('div'); d.className='hall'; d.textContent=name;
+    d.onclick=function(){ selectedHall=name; [].forEach.call(h.children,function(c){c.classList.remove('sel');});
+      d.classList.add('sel'); }; h.appendChild(d); }); }
+
+// ---------- camera ----------
+function toggleCam(){ scanning?stopCam():startCam(); }
+function startCam(){
+  html5 = html5 || new Html5Qrcode('reader');
+  html5.start({facingMode:'environment'}, {fps:10, qrbox:{width:240,height:240}},
+    onDecode, function(){}).then(function(){ scanning=true; $('camBtn').textContent='⏹ Stop camera 停止';
+      $('camBtn').classList.add('red'); }).catch(function(e){ alert('Camera error: '+e); });
+}
+function stopCam(){ if(html5&&scanning){ html5.stop().then(function(){ scanning=false;
+  $('camBtn').textContent='📷 Start camera 开始扫描'; $('camBtn').classList.remove('red'); }); } }
+function onDecode(text){
+  var now=Date.now(); if(text===lastCode && now-lastAt<3000) return;   // debounce
+  lastCode=text; lastAt=now; submit(text);
+}
+
+// ---------- submit a check-in ----------
+function submit(payload){
+  var cp=curCp();
+  if(cp.type==='hall' && !selectedHall){ beep(false); showErr('请先选择讲座厅 Pick a hall first'); return; }
+  gcall('recordScan',{ pass:load('pass'), payload:payload, checkpointKey:cp.key,
+                       hall:selectedHall, organiser:load('orgName') })
+    .then(render).catch(function(){ showErr('Network error, retry'); });
+}
+function render(r){
+  if(!r.ok){ beep(false); showErr(r.message||r.error); return; }
+  var cls = r.duplicate?'dup':'ok';
+  var head = r.switched ? '🔁 SWITCHED 已换厅' : (r.duplicate ? '⚠️ ALREADY DONE 已报到' : '✅ CHECKED IN 报到成功');
+  var html='<div class="card result '+cls+'">';
+  html+='<div class="sub">'+head+'</div>';
+  html+='<div class="nm">'+esc(r.name)+'</div>';
+  html+='<div class="sub">'+esc(r.id)+(r.group?' · '+esc(r.group):'')+'</div>';
+  if(r.type==='room' && r.room) html+='<div class="room">🔑 Room '+esc(r.room)+'</div>';
+  if(r.type==='hall' && r.hall) html+='<span class="pill hall">'+esc(r.hall)+'</span>';
+  if(r.type==='checkout') html+='<div class="room">🔑 收回房卡 Collect key</div>';
+  if(String(r.role||'').toLowerCase().indexOf('organ')>-1) html+='<span class="pill org">同工 Organiser</span>';
+  if(r.busBack && r.type==='checkout') html+='<div class="sub">🚌 返程乘车 — remind to gather for bus</div>';
+  if(r.duplicate && r.prevTime) html+='<div class="sub">first at '+r.prevTime+'</div>';
+  html+='<div class="sub">'+r.time+'</div></div>';
+  $('resultBox').innerHTML=html;
+  beep(true); if(navigator.vibrate) navigator.vibrate(r.duplicate?[60,40,60]:120);
+  addRecent(r);
+}
+function showErr(msg){ $('resultBox').innerHTML='<div class="card result err"><div class="nm">✕</div><div class="sub">'+esc(msg)+'</div></div>';
+  if(navigator.vibrate) navigator.vibrate([100,50,100]); }
+function addRecent(r){ var box=$('recent'); if(box.querySelector('.muted')) box.innerHTML='';
+  var row=document.createElement('div'); row.className='row';
+  var tag=r.switched?'🔁':(r.duplicate?'⚠️':'✅');
+  row.innerHTML='<span class="t">'+r.time.slice(0,5)+'</span><span>'+tag+' '+esc(r.name)+
+    (r.room&&r.type==='room'?' · Rm '+esc(r.room):'')+(r.hall?' · '+esc(r.hall):'')+'</span>';
+  box.insertBefore(row, box.firstChild);
+  while(box.children.length>15) box.removeChild(box.lastChild);
+}
+
+// ---------- manual ----------
+var mt=null;
+function manualSearchDebounced(){ clearTimeout(mt); mt=setTimeout(manualSearch,250); }
+function manualSearch(){ var q=$('manualQ').value.trim(); if(!q){ $('manualResults').innerHTML=''; return; }
+  gcall('manualSearch',{pass:load('pass'), query:q}).then(function(r){
+    if(!r.ok){ $('manualResults').innerHTML='<span class="muted">auth error</span>'; return; }
+    if(!r.results.length){ $('manualResults').innerHTML='<span class="muted">No match</span>'; return; }
+    var h=''; r.results.forEach(function(p){
+      var pl=p.id+(p.token?'-'+p.token:'');
+      h+='<button class="btn gray" style="text-align:left" onclick="manualPick(\''+pl+'\')">'+
+         esc(p.name)+' · '+esc(p.id)+(p.group?' · '+esc(p.group):'')+'</button>'; });
+    $('manualResults').innerHTML=h;
+  }); }
+function manualPick(payload){ lastCode=''; submit(payload); $('manualQ').value=''; $('manualResults').innerHTML=''; }
+
+// ---------- stats ----------
+function openStats(){ $('statsOv').style.display='block'; $('statsBody').innerHTML='<span class="muted">Loading…</span>';
+  gcall('getStats',{pass:load('pass')}).then(function(r){
+    if(!r.ok){ $('statsBody').innerHTML='auth error'; return; }
+    var h='<p class="muted">'+r.total+' attendees · '+r.organisers+' organisers · updated '+r.updated+'</p><table>';
+    h+='<tr><th>Checkpoint</th><th class="n">In</th><th class="n">%</th></tr>';
+    r.rows.forEach(function(x){ var pct=x.total?Math.round(x.count/x.total*100):0;
+      h+='<tr><td>'+esc(x.label)+'<div class="bar"><i style="width:'+pct+'%"></i></div></td>'+
+         '<td class="n">'+x.count+'</td><td class="n">'+pct+'%</td></tr>'; });
+    h+='</table><h4>专题讲座 Seminar halls</h4><table>';
+    Object.keys(r.halls).forEach(function(k){ h+='<tr><td>'+esc(k)+'</td><td class="n">'+r.halls[k]+'</td></tr>'; });
+    h+='</table>'; $('statsBody').innerHTML=h;
+  }); }
+function closeStats(){ $('statsOv').style.display='none'; }
+
+// ---------- utils ----------
+function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,function(c){
+  return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
+function beep(ok){ try{ var a=new (window.AudioContext||window.webkitAudioContext)();
+  var o=a.createOscillator(), g=a.createGain(); o.connect(g); g.connect(a.destination);
+  o.frequency.value=ok?880:220; g.gain.value=0.08; o.start();
+  setTimeout(function(){ o.stop(); a.close(); }, ok?120:260); }catch(e){} }
+</script>
+</body>
+</html>

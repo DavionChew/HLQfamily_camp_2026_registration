@@ -1,0 +1,23 @@
+# --- Real attendee data & generated tags contain personal info (names, phones) ---
+# Keep these OUT of git. The demo + samples (fake data) are safe to commit.
+/data/attendees*.xlsx
+/data/attendees*.csv
+/data/real_*.xlsx
+/data/real_*.csv
+nametags.pdf
+attendees_import.xlsx
+/out/
+
+# allow the template and demo explicitly
+!data/Attendee_List_Template.xlsx
+!data/demo_attendees.csv
+
+# --- Python ---
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# --- misc ---
+preview_*.png
+.DS_Store
