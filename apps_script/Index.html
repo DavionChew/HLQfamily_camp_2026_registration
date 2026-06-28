@@ -140,7 +140,7 @@ function doLogin(silent){
 // ---------- checkpoint + halls ----------
 function buildCp(){ var s=$('cp'); s.innerHTML='';
   CFG.checkpoints.forEach(function(c){ var o=document.createElement('option');
-    o.value=c.key; o.textContent=c.label; s.appendChild(o); });
+    o.value=c.key; o.textContent=c.label+(c.when?'  ·  '+c.when:''); s.appendChild(o); });
   var saved=load('cp'); if(saved) s.value=saved; onCpChange(); }
 function curCp(){ var k=$('cp').value; return CFG.checkpoints.find(function(c){return c.key===k;}); }
 function onCpChange(){ save('cp',$('cp').value);
@@ -166,15 +166,27 @@ function onDecode(text){
 }
 
 // ---------- submit a check-in ----------
-function submit(payload){
+var lastSubmit=null, lastScan=null;
+function submit(payload, force){
   var cp=curCp();
   if(cp.type==='hall' && !selectedHall){ beep(false); showErr('请先选择讲座厅 Pick a hall first'); return; }
+  lastSubmit={payload:payload, hall:selectedHall};
   gcall('recordScan',{ pass:load('pass'), payload:payload, checkpointKey:cp.key,
-                       hall:selectedHall, organiser:load('orgName') })
+                       hall:selectedHall, organiser:load('orgName'), force:!!force })
     .then(render).catch(function(){ showErr('Network error, retry'); });
 }
+function forceLast(){ if(lastSubmit){ selectedHall=lastSubmit.hall; submit(lastSubmit.payload, true); } }
+function undoLast(){ if(!lastScan) return;
+  gcall('undoScan',{pass:load('pass'), id:lastScan.id, checkpointKey:lastScan.cp, organiser:load('orgName')})
+    .then(function(r){ if(r.ok){ $('resultBox').innerHTML='<div class="card result dup"><div class="nm">↩︎ 已撤销 Undone</div><div class="sub">'+esc(r.name)+'</div></div>'; lastScan=null; lastCode=''; }
+      else showErr(r.message||r.error); }); }
 function render(r){
-  if(!r.ok){ beep(false); showErr(r.message||r.error); return; }
+  if(!r.ok){ beep(false);
+    if(r.error==='WINDOW' && r.canForce){
+      $('resultBox').innerHTML='<div class="card result dup"><div class="nm">⏰ 不在时段</div><div class="sub">'+esc(r.message)+'</div>'+
+        '<button class="btn" style="margin-top:10px" onclick="forceLast()">仍然记录 Record anyway</button></div>';
+    } else { showErr(r.message||r.error); }
+    return; }
   var cls = r.duplicate?'dup':'ok';
   var head = r.switched ? '🔁 SWITCHED 已换厅' : (r.duplicate ? '⚠️ ALREADY DONE 已报到' : '✅ CHECKED IN 报到成功');
   var html='<div class="card result '+cls+'">';
@@ -191,8 +203,11 @@ function render(r){
   else if(rl.indexOf('lead')>-1) html+='<span class="pill org">组长 Leader</span>';
   if(r.busBack && r.type==='checkout') html+='<div class="sub">🚌 返程乘车 — remind to gather for bus</div>';
   if(r.duplicate && r.prevTime) html+='<div class="sub">first at '+r.prevTime+'</div>';
-  html+='<div class="sub">'+r.time+'</div></div>';
+  html+='<div class="sub">'+r.time+'</div>';
+  html+='<button class="btn gray" style="margin-top:10px" onclick="undoLast()">↩︎ 撤销 Undo (扫错了?)</button>';
+  html+='</div>';
   $('resultBox').innerHTML=html;
+  lastScan={ id:r.id, cp:curCp().key, name:r.name };
   beep(true); if(navigator.vibrate) navigator.vibrate(r.duplicate?[60,40,60]:120);
   addRecent(r);
 }

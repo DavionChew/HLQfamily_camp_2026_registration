@@ -26,22 +26,29 @@ const DEFAULT_PASSCODE = 'camp2026';   // change after setup via the Camp menu
 //        room     = record time + show the person's hotel room / key
 //        hall     = free-choice seminar, asks which Hall, handles switches
 //        checkout = record time = "room key returned"
+//  day/start/end = the scheduled time window (24h). Shown to organisers in 12h,
+//  and (if ENFORCE_WINDOWS) used to block scans outside the window.
 const CHECKPOINTS = [
-  { key: 'bus_to',   label: '1. 教会乘车报到 Church Bus',       type: 'simple'   },
-  { key: 'checkin',  label: '2. 会场报到·领房卡 Venue Check-in', type: 'room'     },
-  { key: 'theme1',   label: '3. 主题信息1 Theme Msg 1',         type: 'simple'   },
-  { key: 'worship2', label: '4. 敬拜 Day2 Worship',             type: 'simple'   },
-  { key: 'seminar',  label: '5. 专题讲座 Seminar',              type: 'hall'     },
-  { key: 'biggame',  label: '6. 大型游戏 Big Game',             type: 'simple'   },
-  { key: 'bbq',      label: '7. BBQ Dinner',                    type: 'simple'   },
-  { key: 'devo1',    label: '8. 灵修1 Devotion 1',              type: 'simple'   },
-  { key: 'devo2',    label: '9. 灵修2 Devotion 2',              type: 'simple'   },
-  { key: 'theme2',   label: '10. 主题信息2 Theme Msg 2',        type: 'simple'   },
-  { key: 'checkout', label: '11. 退房·还房卡 Check-out',        type: 'checkout' },
-  { key: 'bus_back', label: '12. 返程乘车报到 Return Bus',      type: 'simple'   },
+  { key: 'bus_to',   label: '1. 教会乘车报到 Church Bus',       type: 'simple',   day: 1, start: '08:30', end: '09:30' },
+  { key: 'checkin',  label: '2. 会场报到·领房卡 Venue Check-in', type: 'room',     day: 1, start: '15:00', end: '18:30' },
+  { key: 'theme1',   label: '3. 主题信息1 Theme Msg 1',         type: 'simple',   day: 1, start: '20:00', end: '22:15' },
+  { key: 'worship2', label: '4. 敬拜 Day2 Worship',             type: 'simple',   day: 2, start: '09:30', end: '09:50' },
+  { key: 'seminar',  label: '5. 专题讲座 Seminar',              type: 'hall',     day: 2, start: '09:50', end: '11:45' },
+  { key: 'biggame',  label: '6. 大型游戏 Big Game',             type: 'simple',   day: 2, start: '13:30', end: '15:30' },
+  { key: 'bbq',      label: '7. BBQ Dinner',                    type: 'simple',   day: 2, start: '18:30', end: '20:00' },
+  { key: 'devo1',    label: '8. 灵修1 Devotion 1',              type: 'simple',   day: 2, start: '06:30', end: '09:20' },
+  { key: 'devo2',    label: '9. 灵修2 Devotion 2',              type: 'simple',   day: 3, start: '06:30', end: '08:50' },
+  { key: 'theme2',   label: '10. 主题信息2 Theme Msg 2',        type: 'simple',   day: 3, start: '09:10', end: '10:50' },
+  { key: 'checkout', label: '11. 退房·还房卡 Check-out',        type: 'checkout', day: 3, start: '11:15', end: '12:15' },
+  { key: 'bus_back', label: '12. 返程乘车报到 Return Bus',      type: 'simple',   day: 3, start: '12:15', end: '13:00' },
 ];
 
-const HALLS = ['Hall 1', 'Hall 2', 'Hall 3'];
+const HALLS = ['Jade Main Hall', 'Sapphire 1', 'Sapphire 2'];
+
+// Camp dates per day + optional time-window enforcement.
+const CAMP_DATES = { 1: '2026-08-29', 2: '2026-08-30', 3: '2026-08-31' };
+const ENFORCE_WINDOWS = false;   // ⬅ set TRUE on camp day to block scans outside a checkpoint's time
+const WINDOW_GRACE_MIN = 30;     // allow scanning from this many minutes BEFORE the start time
 
 // Fixed profile columns at the start of the Attendees sheet (in order).
 //   RoomGroup = planned room (e.g. "R01" / a family name). Fill BEFORE camp.
@@ -61,7 +68,33 @@ function doGet() {
 
 /** Public config for the UI (no passcode needed — just labels). */
 function getConfig() {
-  return { checkpoints: CHECKPOINTS, halls: HALLS };
+  return {
+    checkpoints: CHECKPOINTS.map(c => ({
+      key: c.key, label: c.label, type: c.type,
+      when: 'D' + c.day + ' ' + to12h_(c.start) + '–' + to12h_(c.end)
+    })),
+    halls: HALLS,
+    enforce: ENFORCE_WINDOWS
+  };
+}
+
+// --- time helpers ---
+function to12h_(hhmm) {
+  const p = String(hhmm).split(':'); let h = +p[0]; const m = p[1];
+  const ap = h < 12 ? 'am' : 'pm'; h = h % 12; if (h === 0) h = 12;
+  return h + ':' + m + ap;
+}
+function hhmmToMin_(hhmm) { const p = String(hhmm).split(':'); return (+p[0]) * 60 + (+p[1]); }
+function minToHHmm_(min) { const h = Math.floor(min / 60), m = min % 60; return ('0' + h).slice(-2) + ':' + ('0' + m).slice(-2); }
+/** Is "now" inside a checkpoint's scan window? Returns {ok, now, range}. */
+function windowCheck_(ss, cp) {
+  const tz = ss.getSpreadsheetTimeZone();
+  const now = Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd HH:mm');
+  const date = CAMP_DATES[cp.day] || '';
+  const startStr = date + ' ' + minToHHmm_(hhmmToMin_(cp.start) - WINDOW_GRACE_MIN);
+  const endStr = date + ' ' + cp.end;
+  return { ok: (now >= startStr && now <= endStr), now: now,
+           range: 'D' + cp.day + ' ' + to12h_(minToHHmm_(hhmmToMin_(cp.start) - WINDOW_GRACE_MIN)) + '–' + to12h_(cp.end) };
 }
 
 /**
@@ -76,6 +109,7 @@ function doPost(e) {
     switch (req.action) {
       case 'config': out = getConfig(); break;
       case 'scan':   out = recordScan(req); break;
+      case 'undo':   out = undoScan(req); break;
       case 'search': out = manualSearch(req); break;
       case 'stats':  out = getStats(req); break;
       default:       out = { ok: false, error: 'BAD_ACTION' };
@@ -137,6 +171,13 @@ function recordScan(req) {
     if (!cp) return { ok: false, error: 'BAD_CP', message: 'Unknown checkpoint' };
     const col = idx[cp.label];
     if (col === undefined) return { ok: false, error: 'NO_COL', message: '缺少栏位 Missing column: ' + cp.label };
+
+    // optional time-window guard (catches "wrong checkpoint selected"); allow override with force
+    if (ENFORCE_WINDOWS && cp.start && !req.force) {
+      const w = windowCheck_(ss, cp);
+      if (!w.ok) return { ok: false, error: 'WINDOW', canForce: true,
+        message: '⏰ ' + cp.label + ' 扫描时间为 ' + w.range + '。现在不在时段内。' };
+    }
 
     const name = row[idx['Name']];
     const group = row[idx['Group']];
@@ -207,6 +248,53 @@ function recordScan(req) {
       time: fmt_(now, tz),
       duplicate: duplicate, switched: switched, action: action, prevTime: prevTime
     };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+// ----------------------------------------------------------------------------
+// UNDO the last check-in (for a mis-scan / wrong person).
+//   req = { pass, id, checkpointKey }
+//   Clears that checkpoint's timestamp; for room/checkout it reverses the whole
+//   RoomGroup (and clears the room number that check-in stamped).
+// ----------------------------------------------------------------------------
+function undoScan(req) {
+  if (!checkPass(req.pass)) return { ok: false, error: 'AUTH', message: '密码错误' };
+  const lock = LockService.getScriptLock();
+  try { lock.waitLock(20000); } catch (e) { return { ok: false, error: 'BUSY', message: '系统繁忙' }; }
+  try {
+    const ss = SpreadsheetApp.getActive();
+    const sh = ss.getSheetByName(SHEET.ATTENDEES);
+    const data = sh.getDataRange().getValues();
+    const header = data[0]; const idx = {}; header.forEach((h, i) => idx[String(h).trim()] = i);
+    const parsed = parsePayload_(req.id);
+    if (!parsed) return { ok: false, error: 'BAD_QR' };
+    const cp = CHECKPOINTS.find(c => c.key === req.checkpointKey);
+    if (!cp) return { ok: false, error: 'BAD_CP' };
+    const col = idx[cp.label];
+
+    let rowNum = -1, row = null;
+    for (let r = 1; r < data.length; r++) {
+      if (String(data[r][idx['ID']]).trim().toUpperCase() === parsed.id) { rowNum = r + 1; row = data[r]; break; }
+    }
+    if (rowNum < 0) return { ok: false, error: 'NOT_FOUND', message: '找不到 ID: ' + parsed.id };
+    const name = row[idx['Name']];
+    const roomGroup = (idx['RoomGroup'] !== undefined) ? row[idx['RoomGroup']] : '';
+
+    if ((cp.type === 'room' || cp.type === 'checkout') && roomGroup) {
+      const g = String(roomGroup).trim();
+      for (let r = 1; r < data.length; r++) {
+        if (String(data[r][idx['RoomGroup']] || '').trim() !== g) continue;
+        sh.getRange(r + 1, col + 1).clearContent();
+        if (cp.type === 'room' && idx['Room'] !== undefined) sh.getRange(r + 1, idx['Room'] + 1).clearContent();
+      }
+    } else {
+      sh.getRange(rowNum, col + 1).clearContent();
+      if (cp.type === 'hall' && idx[HALL_COL] !== undefined) sh.getRange(rowNum, idx[HALL_COL] + 1).clearContent();
+    }
+    logScan_(ss, new Date(), parsed.id, name, cp.label, '', 'UNDO', req.organiser || '');
+    return { ok: true, id: parsed.id, name: name, checkpoint: cp.label };
   } finally {
     lock.releaseLock();
   }

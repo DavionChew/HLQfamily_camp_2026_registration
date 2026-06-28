@@ -88,9 +88,25 @@ different `--info-url` if your repo name differs, or `--info-url ""` to encode j
 
 ## The 12 checkpoints
 Church bus · **Venue check-in (+ room key)** · 主题信息1 · 敬拜 Day2 ·
-专题讲座 (Hall 1/2/3, free choice + switch handling) · 大型游戏 · BBQ · 灵修1 · 灵修2 ·
-主题信息2 · Check-out (key returned + bus reminder) · Return bus.
-Edit them in one place: the `CHECKPOINTS` list at the top of `apps_script/Code.gs`.
+专题讲座 (Jade Main Hall / Sapphire 1 / Sapphire 2, free choice + switch handling) · 大型游戏 ·
+BBQ · 灵修1 · 灵修2 · 主题信息2 · Check-out (key returned + bus reminder) · Return bus.
+Each carries a scheduled day + time, shown in the dropdown in 12-hour form
+(e.g. "3. 主题信息1 · D1 8:00pm–10:15pm"). Edit them all in one place: the
+`CHECKPOINTS` list at the top of `apps_script/Code.gs` (label, type, day, start, end).
+
+### Camp-day toggles & tips
+- **Continuous scanning:** leave the camera on and scan one person after another — each is
+  auto-recorded to the selected checkpoint. The same QR is ignored for 3 s to avoid doubles.
+- **Undo a mis-scan:** every confirmation card has **↩︎ 撤销 Undo** which reverses that last
+  check-in (for room/checkout it reverses the whole family). Also logged in ScanLog.
+- **Time-window guard (optional):** set `ENFORCE_WINDOWS = true` in `Code.gs` on camp day.
+  Scans then only succeed from **30 min before** a checkpoint's start until its end — which
+  stops accidental scans into the wrong checkpoint. If a session runs late, the screen offers
+  **"仍然记录 Record anyway"**. Keep it `false` while testing (today's date is outside the camp
+  windows, so everything would be blocked otherwise). Times/dates live in `CHECKPOINTS` + `CAMP_DATES`.
+- **Wrong ID/Name?** Manual entry never free-types a check-in — you search and tap a person
+  (name + ID + group shown), and the big confirmation card shows who you just recorded, so a
+  slip is obvious and one tap of Undo fixes it.
 
 ## Organiser usage (phone)
 Open link → name + passcode → pick checkpoint → 📷 scan (or **Manual** by ID/name).
