@@ -1,13 +1,13 @@
-ID,Token,Name,Phone,Role,Group,BusTo,BusBack,Room,RoomNote,Notes
-,,陈大文 David Chen,0123456789,Attendee,青年组 Youth,Y,Y,201,,
-,,林美丽 Mary Lim,0129876543,Organiser,后勤 Logistics,N,N,202,Registration lead,负责报到
-,,王志强 John Wong,0111234567,Attendee,弟兄组 Brothers,Y,N,201,,素食 Vegetarian
-,,黄淑芬 Susan Ng,0162223334,Attendee,姐妹组 Sisters,N,Y,203,,
-,,李建国 Peter Lee,0177778888,Organiser,音响 Audio,Y,Y,202,,PA team
-,,张惠玲 Grace Teo,0199990000,Attendee,青年组 Youth,N,N,203,,
-,,刘伟杰 Samuel Goh,0188887777,Attendee,弟兄组 Brothers,Y,Y,201,,
-,,郑丽华 Anna Tan,0166665555,Organiser,节目 Programme,N,N,204,,Programme lead
-,,Daniel Lim,0155554444,Attendee,青年组 Youth,Y,N,204,,Peanut allergy
-,,Rachel Chua,0144443333,Attendee,姐妹组 Sisters,N,Y,203,,
-,,Joshua Tan,0133332222,Organiser,接待 Hospitality,Y,Y,202,,
-,,Esther Koh,0122221111,Attendee,青年组 Youth,N,N,204,,
+ID,Token,Name,Phone,Role,Group,BusTo,BusBack,RoomGroup,Room,RoomNote,Notes
+,,陈大文 David Chen,0123456789,Attendee,青年组 Youth,Y,Y,R01,,,
+,,林美丽 Mary Lim,0129876543,Organiser,后勤 Logistics,N,N,R02,,Registration lead,负责报到
+,,王志强 John Wong,0111234567,Attendee,弟兄组 Brothers,Y,N,R01,,,素食 Vegetarian
+,,黄淑芬 Susan Ng,0162223334,Attendee,姐妹组 Sisters,N,Y,R03,,,
+,,李建国 Peter Lee,0177778888,Organiser,音响 Audio,Y,Y,R02,,,PA team
+,,张惠玲 Grace Teo,0199990000,Attendee,青年组 Youth,N,N,R03,,,
+,,刘伟杰 Samuel Goh,0188887777,Attendee,弟兄组 Brothers,Y,Y,R01,,,
+,,郑丽华 Anna Tan,0166665555,Organiser,节目 Programme,N,N,R04,,,Programme lead
+,,Daniel Lim,0155554444,Attendee,青年组 Youth,Y,N,R04,,,Peanut allergy
+,,Rachel Chua,0144443333,Attendee,姐妹组 Sisters,N,Y,R03,,,
+,,Joshua Tan,0133332222,Organiser,接待 Hospitality,Y,Y,R02,,,
+,,Esther Koh,0122221111,Attendee,青年组 Youth,N,N,R04,,,

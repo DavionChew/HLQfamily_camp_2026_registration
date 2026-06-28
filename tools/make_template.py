@@ -7,7 +7,7 @@ from openpyxl import Workbook
 from openpyxl.worksheet.datavalidation import DataValidation
 from openpyxl.styles import Font, PatternFill, Alignment
 
-COLS = ['ID','Token','Name','Phone','Role','Group','BusTo','BusBack','Room','RoomNote','Notes']
+COLS = ['ID','Token','Name','Phone','Role','Group','BusTo','BusBack','RoomGroup','Room','RoomNote','Notes']
 HELP = {
  'ID':'Leave blank — auto-generated (C001, C002…)',
  'Token':'Leave blank — auto-generated security code',
@@ -17,9 +17,10 @@ HELP = {
  'Group':'小组 / cell group / family',
  'BusTo':'Y if taking the church bus TO the venue, else N',
  'BusBack':'Y if taking the bus BACK to church, else N',
- 'Room':'Hotel room number (pre-assign here if known)',
- 'RoomNote':'e.g. roommate names, gender block',
- 'Notes':'allergies, dietary, special needs…',
+ 'RoomGroup':'房间分组 — same code = same room (e.g. R01). Fill BEFORE camp.',
+ 'Room':'LEAVE BLANK — actual room number auto-filled at check-in (3pm)',
+ 'RoomNote':'e.g. gender block, special needs',
+ 'Notes':'allergies, dietary, etc.',
 }
 
 wb = Workbook()
@@ -33,8 +34,8 @@ for i, c in enumerate(COLS, 1):
 
 # example rows
 examples = [
- ['', '', '陈大文 David Chen', '0123456789', 'Attendee', '青年组 Youth', 'Y', 'Y', '', '', ''],
- ['', '', '林美丽 Mary Lim',   '0129876543', 'Organiser','后勤 Logistics','N','N','', '', '负责报到 Registration lead'],
+ ['', '', '陈大文 David Chen', '0123456789', 'Attendee', '青年组 Youth', 'Y', 'Y', 'R01', '', '', ''],
+ ['', '', '林美丽 Mary Lim',   '0129876543', 'Organiser','后勤 Logistics','N','N','R02','', '', '负责报到 Registration lead'],
 ]
 for r, row in enumerate(examples, 3):
     for ci, v in enumerate(row, 1):
@@ -61,8 +62,9 @@ lines = [
  '3. Name is required. Everything else is optional but useful.',
  '4. Role = Organiser for your core team (so they show as 同工).',
  '5. BusTo / BusBack = Y only for people using the church bus.',
- '6. Room: pre-assign here if you have planned rooming; the check-in',
- '   screen will then show the room number when you scan them.',
+ '6. RoomGroup: give everyone sharing a room the SAME code (e.g. R01).',
+ '   Leave Room blank — you type each real room number on the Rooms tab',
+ '   at 3pm, and it auto-fills to every member when you scan them in.',
  '',
  'WHEN DONE: send this file back. The generator will:',
  '  • assign each person an ID + security token',

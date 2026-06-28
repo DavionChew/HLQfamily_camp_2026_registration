@@ -62,11 +62,18 @@ cd tools
 python3 make_template.py                       # (optional) regenerate the blank template
 python3 generate_nametags.py ../data/your_list.xlsx --event "Your Camp 2026"
 ```
-Produces `nametags.pdf` + `attendees_import.xlsx`. Paste columns **A:K** of the
+Produces `nametags.pdf` + `attendees_import.xlsx`. Paste columns **A:L** of the
 import file into the Sheet's **Attendees** tab at row 2.
 
 **3. Print tags** — `nametags.pdf` is 4/A4-page. Print **double-sided, flip on LONG edge**,
 test one page first, then cut on the corner marks.
+
+**4. Rooming (room numbers only known at 3pm)**
+Before camp: give everyone sharing a room the same **RoomGroup** code (e.g. `R01`) and
+list each room on the **Rooms** tab. Leave the `Room` column blank. At 3pm, type the real
+**RoomNumber** once per row on the Rooms tab — when you scan a person at check-in, the
+system auto-stamps their room and shows the key to hand over (until then it shows
+"🔑 房号未定 Room TBD").
 
 ## The 12 checkpoints
 Church bus · **Venue check-in (+ room key)** · 主题信息1 · 敬拜 Day2 ·
@@ -78,6 +85,12 @@ Edit them in one place: the `CHECKPOINTS` list at the top of `apps_script/Code.g
 Open link → name + passcode → pick checkpoint → 📷 scan (or **Manual** by ID/name).
 Green = checked in (room shows at check-in); amber = already done; 🔁 = hall switch.
 **📊 Stats** shows live counts on any phone; the **Dashboard** tab shows the full picture.
+
+## Live "who's outstanding" views (Dashboard tab + 📊 Stats)
+Both update automatically as people are scanned:
+- **🚌 去程未上车 / 返程未上车** — among the people on the bus list, who has **not** boarded
+  yet (plus an "x / y boarded" count). Use this to confirm everyone's aboard before departing.
+- **🔑 未领房卡** — who has **not** collected their room key yet (plus "x / y issued").
 
 ## Setup dependencies (for the tag generator)
 ```bash

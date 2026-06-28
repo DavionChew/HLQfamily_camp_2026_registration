@@ -26,7 +26,7 @@ from reportlab.pdfbase.cidfonts import UnicodeCIDFont
 pdfmetrics.registerFont(UnicodeCIDFont('STSong-Light'))   # built-in CJK font (Chinese OK)
 FONT = 'STSong-Light'
 
-PROFILE = ['ID','Token','Name','Phone','Role','Group','BusTo','BusBack','Room','RoomNote','Notes']
+PROFILE = ['ID','Token','Name','Phone','Role','Group','BusTo','BusBack','RoomGroup','Room','RoomNote','Notes']
 TOKEN_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'   # no 0/O/1/I confusion
 BLUE = HexColor('#1A73E8'); DARK = HexColor('#202124'); GRAY = HexColor('#9aa0a6')
 

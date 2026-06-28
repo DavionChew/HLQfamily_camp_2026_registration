@@ -21,3 +21,4 @@ venv/
 # --- misc ---
 preview_*.png
 .DS_Store
+tools/Attendee_List_Template.xlsx   # build artifact; canonical copy lives in data/
