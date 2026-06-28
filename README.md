@@ -32,9 +32,12 @@ samples/
 2. Paste `apps_script/Code.gs` into the editor.
 3. **+ → HTML**, name it exactly `Index`, paste `apps_script/Index.html`.
 4. Run `setupSheet` once (authorise). It builds the `Dashboard`, `Attendees`, `ScanLog`, `Rooms` tabs.
-5. **Deploy → New deployment → Web app** · Execute as **Me** · Access **Anyone with link** → copy the URL.
-6. In the Sheet, **🏕 Camp Check-in → ② Change passcode** (default `camp2026`).
-7. Send the **URL + passcode** to your organiser team.
+5. **Deploy → New deployment → Web app** · Execute as **Me** · Access **Anyone with link** → Deploy.
+6. Get the real link from **Deploy → Manage deployments** → copy the URL ending in **`/exec`**.
+   *(Don't rely on the menu's auto-detect — with multiple deployments it can show the wrong one.)*
+7. In the Sheet: **🏕 Camp Check-in → ③ Save check-in link** (paste that `/exec` URL),
+   then **② Change passcode** (default `camp2026`).
+8. Send the **saved link + passcode** to your organiser team.
 
 **2. Load attendees**
 ```bash

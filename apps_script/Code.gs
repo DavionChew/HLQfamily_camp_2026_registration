@@ -367,7 +367,8 @@ function onOpen() {
   SpreadsheetApp.getUi().createMenu('🏕 Camp Check-in')
     .addItem('① Setup / Rebuild sheets', 'setupSheet')
     .addItem('② Change organiser passcode', 'menuSetPasscode_')
-    .addItem('③ Show check-in link', 'menuShowUrl_')
+    .addItem('③ Save check-in link', 'menuSetUrl_')
+    .addItem('④ Show check-in link', 'menuShowUrl_')
     .addToUi();
 }
 function menuSetPasscode_() {
@@ -378,8 +379,28 @@ function menuSetPasscode_() {
     if (v) { PropertiesService.getScriptProperties().setProperty('ORG_PASSCODE', v); ui.alert('Passcode set to: ' + v); }
   }
 }
+/**
+ * Paste the REAL web-app URL here once. Get it from:
+ *   Deploy > Manage deployments > (your Web app) > copy the URL ending in /exec
+ * We store it instead of trusting ScriptApp.getService().getUrl(), which can
+ * return the wrong deployment when several exist.
+ */
+function menuSetUrl_() {
+  const ui = SpreadsheetApp.getUi();
+  const res = ui.prompt('Save check-in link',
+    'Paste the Web app URL from Deploy > Manage deployments (ends with /exec):',
+    ui.ButtonSet.OK_CANCEL);
+  if (res.getSelectedButton() === ui.Button.OK) {
+    const v = res.getResponseText().trim();
+    if (v) { PropertiesService.getScriptProperties().setProperty('WEBAPP_URL', v); ui.alert('Saved:\n\n' + v); }
+  }
+}
 function menuShowUrl_() {
+  const saved = PropertiesService.getScriptProperties().getProperty('WEBAPP_URL');
+  if (saved) { SpreadsheetApp.getUi().alert('Check-in link (share this):\n\n' + saved); return; }
   let url = '';
   try { url = ScriptApp.getService().getUrl(); } catch (e) {}
-  SpreadsheetApp.getUi().alert(url ? ('Check-in link:\n\n' + url) : 'Deploy first: Deploy > New deployment > Web app.');
+  SpreadsheetApp.getUi().alert(
+    (url ? ('Auto-detected (may be wrong if you have multiple deployments):\n\n' + url + '\n\n') : '') +
+    '➡️ Use "③ Save check-in link" with the URL from Deploy > Manage deployments.');
 }
