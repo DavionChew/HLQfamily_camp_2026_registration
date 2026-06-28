@@ -1,16 +1,25 @@
 # 🏕 Church Camp Check-in System
 
 QR + manual check-in for ~280 people across a 3-day / 2-night camp.
-**No cost, no app install.** A Google Sheet is the live database + dashboard; a
-phone web-page scans the QR on the back of each name tag and writes to it. Every
-organiser uses the same link on their own phone, in real time.
+**No cost, no app install.** A Google Sheet is the live database + dashboard;
+the Apps Script is the data API; a phone web-page (on GitHub Pages) scans the QR
+on the back of each name tag and writes to it. Every organiser uses the same link
+on their own phone, in real time.
+
+> **Why GitHub Pages for the scanner?** Apps Script serves its web app inside a
+> cross-origin iframe that browsers block from using the camera. So the camera
+> scanner is hosted on GitHub Pages (a top-level page, camera works) and talks to
+> Apps Script as a JSON API. The in-Apps-Script `Index.html` still works for
+> **manual entry** as a backup.
 
 ## Repo layout
 
 ```
+docs/
+  index.html     CAMERA SCANNER -> served by GitHub Pages (share this with the team)
 apps_script/
-  Code.gs        backend logic   -> paste into Google Apps Script
-  Index.html     phone scanner   -> paste into Apps Script (HTML file named "Index")
+  Code.gs        backend API + setup    -> paste into Google Apps Script
+  Index.html     manual-entry backup    -> paste into Apps Script (HTML file named "Index")
 tools/
   make_template.py        builds the blank attendee template
   generate_nametags.py    list -> printable tags (front=name, back=QR) + Sheet import
@@ -35,9 +44,17 @@ samples/
 5. **Deploy → New deployment → Web app** · Execute as **Me** · Access **Anyone with link** → Deploy.
 6. Get the real link from **Deploy → Manage deployments** → copy the URL ending in **`/exec`**.
    *(Don't rely on the menu's auto-detect — with multiple deployments it can show the wrong one.)*
-7. In the Sheet: **🏕 Camp Check-in → ③ Save check-in link** (paste that `/exec` URL),
-   then **② Change passcode** (default `camp2026`).
-8. Send the **saved link + passcode** to your organiser team.
+7. In the Sheet: **② Change passcode** (default `camp2026`).
+
+**1b. Turn on the camera scanner (GitHub Pages)**
+1. Put your **`/exec`** URL into `docs/index.html` — edit the `API_URL = "…"` line near the top.
+2. Commit & push: `git add -A && git commit -m "set API_URL" && git push`.
+3. On GitHub: **Settings → Pages → Source: Deploy from a branch → `main` / `/docs`** → Save.
+4. After ~1 min your scanner is live at
+   `https://<you>.github.io/<repo>/` — **this is the link you share** with the team (+ passcode).
+
+> If you later change `Code.gs`, redeploy: **Deploy → Manage deployments → ✏️ Edit →
+> Version: New version → Deploy**. The `/exec` URL stays the same, so nothing else changes.
 
 **2. Load attendees**
 ```bash

@@ -61,6 +61,29 @@ function getConfig() {
   return { checkpoints: CHECKPOINTS, halls: HALLS };
 }
 
+/**
+ * JSON API for the external scanner page (GitHub Pages).
+ * Called via fetch POST with Content-Type text/plain (avoids a CORS preflight,
+ * which Apps Script can't answer). Body = {action, ...params}.
+ */
+function doPost(e) {
+  let out;
+  try {
+    const req = JSON.parse((e && e.postData && e.postData.contents) || '{}');
+    switch (req.action) {
+      case 'config': out = getConfig(); break;
+      case 'scan':   out = recordScan(req); break;
+      case 'search': out = manualSearch(req); break;
+      case 'stats':  out = getStats(req); break;
+      default:       out = { ok: false, error: 'BAD_ACTION' };
+    }
+  } catch (err) {
+    out = { ok: false, error: 'EXCEPTION', message: String(err) };
+  }
+  return ContentService.createTextOutput(JSON.stringify(out))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
 // ----------------------------------------------------------------------------
 // AUTH
 // ----------------------------------------------------------------------------
