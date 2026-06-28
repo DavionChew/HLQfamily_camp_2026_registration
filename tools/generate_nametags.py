@@ -28,6 +28,9 @@ FONT = 'STSong-Light'
 
 PROFILE = ['ID','Token','Name','Phone','Role','Group','BusTo','BusBack','RoomGroup','Room','RoomNote','Notes']
 TOKEN_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'   # no 0/O/1/I confusion
+# Public schedule/info page the QR opens when scanned by a normal phone camera.
+DEFAULT_INFO_URL = 'https://davionchew.github.io/HLQfamily_camp_2026_registration/info.html'
+INFO_URL = DEFAULT_INFO_URL
 BLUE = HexColor('#1A73E8'); DARK = HexColor('#202124'); GRAY = HexColor('#9aa0a6')
 
 # ---- card / page geometry ----
@@ -141,15 +144,23 @@ def draw_front(c, x, y, att, event):
 def draw_back(c, x, y, att):
     c.setStrokeColor(HexColor('#d0d4da')); c.setLineWidth(0.5)
     c.rect(x, y, CARD_W, CARD_H)
-    payload = '%s-%s' % (att['ID'], att['Token'])
-    qsize = 60*mm
-    c.drawImage(qr_reader(payload), x+(CARD_W-qsize)/2, y+CARD_H-qsize-22*mm, qsize, qsize)
+    idtok = '%s-%s' % (att['ID'], att['Token'])
+    # QR encodes the info-page URL (so a normal phone camera shows the schedule),
+    # with ?id= that the organiser scanner reads for check-in. No URL -> plain id-token.
+    if INFO_URL:
+        qr_data = INFO_URL + ('&' if '?' in INFO_URL else '?') + 'id=' + idtok
+    else:
+        qr_data = idtok
+    qsize = 58*mm
+    c.drawImage(qr_reader(qr_data), x+(CARD_W-qsize)/2, y+CARD_H-qsize-20*mm, qsize, qsize)
     c.setFillColor(DARK); c.setFont(FONT, 13)
-    c.drawCentredString(x+CARD_W/2, y+30*mm, payload)
+    c.drawCentredString(x+CARD_W/2, y+32*mm, idtok)                       # short code (for manual entry)
     c.setFillColor(GRAY); c.setFont(FONT, fit_font(c, str(att['Name']), CARD_W-12*mm, 12))
-    c.drawCentredString(x+CARD_W/2, y+22*mm, str(att['Name']))
+    c.drawCentredString(x+CARD_W/2, y+24*mm, str(att['Name']))
     c.setFillColor(BLUE); c.setFont(FONT, 10)
-    c.drawCentredString(x+CARD_W/2, y+12*mm, '扫描报到  Scan to check in')
+    c.drawCentredString(x+CARD_W/2, y+15*mm, '扫描看节目表 Scan for schedule')
+    c.setFillColor(GRAY); c.setFont(FONT, 8)
+    c.drawCentredString(x+CARD_W/2, y+9*mm, '同工扫描即报到 · Organisers: scan to check in')
     crop_marks(c, x, y)
 
 
@@ -180,12 +191,16 @@ def write_import(rows, out_xlsx):
 
 
 def main():
+    global INFO_URL
     ap = argparse.ArgumentParser()
     ap.add_argument('input')
     ap.add_argument('--event', default='Church Camp 2026')
     ap.add_argument('--pdf', default='nametags.pdf')
     ap.add_argument('--import-file', default='attendees_import.xlsx')
+    ap.add_argument('--info-url', default=DEFAULT_INFO_URL,
+                    help='Public info/schedule page the QR opens. Use "" to encode plain ID-Token only.')
     a = ap.parse_args()
+    INFO_URL = a.info_url
 
     rows = assign_ids(read_rows(a.input))
     if not rows:

@@ -75,6 +75,17 @@ list each room on the **Rooms** tab. Leave the `Room` column blank. At 3pm, type
 system auto-stamps their room and shows the key to hand over (until then it shows
 "🔑 房号未定 Room TBD").
 
+## Attendee info page (one QR, two uses)
+The QR on each tag encodes a URL to a **public schedule page** (`docs/info.html`):
+- An **attendee** scanning with their **normal phone camera** → opens the 节目表 + 🆘 emergency contacts.
+- An **organiser** scanning in the scanner app → the app reads the `?id=` and checks them in.
+
+Setup: edit the 🆘 contact names/numbers in `docs/info.html`, push, and it's live at
+`https://<you>.github.io/<repo>/info.html` (same Pages site as the scanner). The generator
+already points the QR there via `--info-url` (default set in `generate_nametags.py`); pass a
+different `--info-url` if your repo name differs, or `--info-url ""` to encode just the ID.
+**This page is static — 280 attendees scanning it puts zero load on the check-in backend.**
+
 ## The 12 checkpoints
 Church bus · **Venue check-in (+ room key)** · 主题信息1 · 敬拜 Day2 ·
 专题讲座 (Hall 1/2/3, free choice + switch handling) · 大型游戏 · BBQ · 灵修1 · 灵修2 ·
