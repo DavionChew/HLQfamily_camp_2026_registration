@@ -129,7 +129,7 @@
 //  Paste your Apps Script Web app URL (Deploy > Manage deployments, ends /exec).
 //  When you redeploy a NEW VERSION of the same deployment, this URL stays the same.
 // ====================================================================
-var API_URL = "https://script.google.com/macros/s/AKfycbwPC_cczRP1z3RMpTYha7pi4FiPFfubYn1ZwGRclMOe-g1M3TfP-dcy4p9pZSuGRfTc/exec";
+var API_URL = "https://script.google.com/macros/s/AKfycbz1y8SEHVHxTgN26QoAMgJxct1LYZ0y4EjOWF38V86EUfwJzpVC02xju2Uzr1e1Ig7e/exec";
 
 var CFG=null, html5=null, scanning=false, lastCode='', lastAt=0, selectedHall='';
 function $(id){ return document.getElementById(id); }
@@ -272,23 +272,29 @@ function openStats(){ $('statsOv').style.display='block'; $('statsBody').innerHT
       h+='<tr><td>'+esc(x.label)+'<div class="bar"><i style="width:'+pct+'%"></i></div></td>'+
          '<td class="n">'+x.count+'</td><td class="n">'+pct+'%</td></tr>'; });
     h+='</table>';
-    h+=pendingBlock('🚌 去程未上车 Bus to venue — NOT boarded', r.busTo);
-    h+=pendingBlock('🔑 未领房卡 No key yet (by room)', r.keyOut);
-    h+=pendingBlock('🔑 未还房卡 Key not returned (by room)', r.keyReturn);
-    h+=pendingBlock('🚌 返程未上车 Return bus — NOT boarded', r.busBack);
+    h+=pendingBlock('🚌 去程未上车 Bus to venue', r.busTo, 'busTo');
+    h+=pendingBlock('🔑 未领房卡 No key yet (by room)', r.keyOut, 'keyOut');
+    h+=pendingBlock('🔑 未还房卡 Key not returned (by room)', r.keyReturn, 'keyRet');
+    h+=pendingBlock('🚌 返程未上车 Return bus', r.busBack, 'busBack');
     h+='<h4>专题讲座 Seminar halls</h4><table>';
     Object.keys(r.halls).forEach(function(k){ h+='<tr><td>'+esc(k)+'</td><td class="n">'+r.halls[k]+'</td></tr>'; });
     h+='</table>'; $('statsBody').innerHTML=h;
   }); }
-function pendingBlock(title, o){
+function pendingBlock(title, o, key){
   if(!o) return '';
-  var done=o.done||0, total=o.total||0, list=o.pending||[];
-  var h='<h4>'+esc(title)+' <span class="muted">('+done+'/'+total+' done)</span></h4>';
-  if(!list.length) return h+'<p style="color:#2e7d32">✅ 全部完成 All done</p>';
-  h+='<div class="card" style="max-height:200px;overflow:auto">';
-  list.forEach(function(x){ h+='<div style="padding:4px 0;border-bottom:1px solid var(--line)">⬜ '+esc(x)+'</div>'; });
-  return h+'</div>';
+  var done=o.done||0, total=o.total||0, list=o.pending||[], rem=list.length;
+  var h='<div style="margin-top:10px">';
+  h+='<div onclick="togglePend(\''+key+'\')" style="cursor:pointer;font-weight:700;padding:9px 10px;'+
+     'background:#1b1f27;border:1px solid var(--line);border-radius:10px;display:flex;align-items:center;gap:8px">'+
+     '<span style="flex:1">'+esc(title)+' <span class="muted" style="font-weight:400">'+done+'/'+total+'</span></span>';
+  if(rem) h+='<span style="color:#f9a825">▸ '+rem+' 未完成</span>'; else h+='<span style="color:#2e7d32">✅ 完成</span>';
+  h+='</div>';
+  h+='<div id="pend_'+key+'" style="display:none;max-height:260px;overflow:auto;border:1px solid var(--line);border-top:0;border-radius:0 0 10px 10px">';
+  if(!rem) h+='<p style="color:#2e7d32;padding:8px;margin:0">✅ 全部完成 All done</p>';
+  else list.forEach(function(x){ h+='<div style="padding:5px 10px;border-bottom:1px solid var(--line)">⬜ '+esc(x)+'</div>'; });
+  return h+'</div></div>';
 }
+function togglePend(key){ var e=$('pend_'+key); if(e) e.style.display=(e.style.display==='none'?'block':'none'); }
 function closeStats(){ $('statsOv').style.display='none'; }
 
 // ---------- lookup ----------
