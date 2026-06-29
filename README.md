@@ -62,7 +62,7 @@ cd tools
 python3 make_template.py                       # (optional) regenerate the blank template
 python3 generate_nametags.py ../data/your_list.xlsx --event "Your Camp 2026"
 ```
-Produces `nametags.pdf` + `attendees_import.xlsx`. Paste columns **A:L** of the
+Produces `nametags.pdf` + `attendees_import.xlsx`. Paste columns **A:N** of the
 import file into the Sheet's **Attendees** tab at row 2.
 
 **3. Print tags** — `nametags.pdf` is 4/A4-page. Print **double-sided, flip on LONG edge**,
@@ -86,8 +86,9 @@ already points the QR there via `--info-url` (default set in `generate_nametags.
 different `--info-url` if your repo name differs, or `--info-url ""` to encode just the ID.
 **This page is static — 280 attendees scanning it puts zero load on the check-in backend.**
 
-## The 12 checkpoints
-Church bus · **Venue check-in (+ room key)** · 主题信息1 · 敬拜 Day2 ·
+## The 14 checkpoints
+Church bus · **抵达报到 Arrival (手册/名卡)** · **破冰游戏·分组 Ice-breaker** ·
+**Venue check-in (+ room key)** · 主题信息1 · 敬拜 Day2 ·
 专题讲座 (Jade Main Hall / Sapphire 1 / Sapphire 2, free choice + switch handling) · 大型游戏 ·
 BBQ · 灵修1 · 灵修2 · 主题信息2 · Check-out (key returned + bus reminder) · Return bus.
 Each carries a scheduled day + time, shown in the dropdown in 12-hour form
@@ -116,6 +117,16 @@ Each carries a scheduled day + time, shown in the dropdown in 12-hour form
 Open link → name + passcode → pick checkpoint → 📷 scan (or **Manual** by ID/name).
 Green = checked in (room shows at check-in); amber = already done; 🔁 = hall switch.
 **📊 Stats** shows live counts on any phone; the **Dashboard** tab shows the full picture.
+
+**🔎 查询 Lookup** — search an ID / name / group to pull up a person's **phone, emergency
+contact, room, 营内分组 (CampGroup), 小组**, and their **status at every activity**:
+✅已签到 (scanned) · 🟡进行中 (in progress) · ⬜未开始 (not started) · ❌缺席 (window ended, no scan).
+Statuses use the Schedule-tab times, so they're meaningful only when those times/dates are set.
+
+### Two extra properties (reserved)
+- **CampGroup** 营内分组 — the group formed at the ice-breaker that follows people to 灵修 etc.
+  Values TBD; fill the column when your team decides the grouping.
+- **Emergency** 紧急联络人 — per-person emergency contact (name + phone), shown in Lookup.
 
 ## Live "who's outstanding" views (Dashboard tab + 📊 Stats)
 Both update automatically as people are scanned:

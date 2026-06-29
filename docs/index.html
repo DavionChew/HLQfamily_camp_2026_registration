@@ -83,6 +83,7 @@
   <div class="tabs">
     <button class="btn" id="camBtn" onclick="toggleCam()">📷 Start camera 开始扫描</button>
     <button class="btn gray" onclick="openStats()">📊 Stats</button>
+    <button class="btn gray" onclick="openLookup()">🔎 查询</button>
   </div>
 
   <div id="reader"></div>
@@ -100,6 +101,16 @@
   <div class="card recent">
     <label>Recent 最近</label>
     <div id="recent"><span class="muted">No scans yet.</span></div>
+  </div>
+</div>
+
+<!-- LOOKUP overlay -->
+<div id="lookupOv" class="overlay" style="display:none">
+  <div class="wrap">
+    <button class="btn gray" onclick="closeLookup()">✕ Close</button>
+    <h3>🔎 查询 Lookup</h3>
+    <input id="lookupQ" placeholder="ID / 名字 / 分组…" oninput="lookupDebounced()">
+    <div id="lookupBody"><span class="muted">输入 ID、名字或分组以查询</span></div>
   </div>
 </div>
 
@@ -130,7 +141,7 @@ function apiCall(action, params){
 }
 // keep the same call names used below
 function gcall(fn, arg){
-  var map={getConfig:'config', getStats:'stats', recordScan:'scan', manualSearch:'search', undoScan:'undo'};
+  var map={getConfig:'config', getStats:'stats', recordScan:'scan', manualSearch:'search', undoScan:'undo', lookupPerson:'lookup'};
   return apiCall(map[fn], arg);
 }
 function save(k,v){ try{ localStorage.setItem(k,v);}catch(e){} }
@@ -282,6 +293,39 @@ function pendingBlock(title, o){
   return h+'</div>';
 }
 function closeStats(){ $('statsOv').style.display='none'; }
+
+// ---------- lookup ----------
+var lkt=null;
+function openLookup(){ $('lookupOv').style.display='block'; setTimeout(function(){$('lookupQ').focus();},50); }
+function closeLookup(){ $('lookupOv').style.display='none'; }
+function lookupDebounced(){ clearTimeout(lkt); lkt=setTimeout(doLookup,250); }
+function doLookup(){ var q=$('lookupQ').value.trim();
+  if(!q){ $('lookupBody').innerHTML='<span class="muted">输入 ID、名字或分组以查询</span>'; return; }
+  gcall('lookupPerson',{pass:load('pass'), query:q}).then(function(r){
+    if(!r.ok){ $('lookupBody').innerHTML='auth error'; return; }
+    if(!r.results.length){ $('lookupBody').innerHTML='<span class="muted">No match</span>'; return; }
+    var h=''; r.results.forEach(function(p){ h+=personCard(p); }); $('lookupBody').innerHTML=h;
+  }).catch(function(){ $('lookupBody').innerHTML='<span class="muted">Network error</span>'; }); }
+function stateChip(s){
+  var m={done:['✅已签到','#34a853'], now:['🟡进行中','#f9a825'], soon:['⬜未开始','#6b7280'], absent:['❌缺席','#c62828']};
+  var x=m[s]||m.soon;
+  return '<span style="font-size:11px;padding:2px 7px;border-radius:6px;background:'+x[1]+';color:#fff">'+x[0]+'</span>'; }
+function personCard(p){
+  var rl=String(p.role||'').toLowerCase();
+  var h='<div class="card"><div style="font-size:20px;font-weight:800">'+esc(p.name)+
+    ' <span class="muted" style="font-size:13px">'+esc(p.id)+'</span>';
+  if(rl.indexOf('organ')>-1) h+=' <span class="pill org">同工</span>';
+  else if(rl.indexOf('lead')>-1) h+=' <span class="pill org">组长</span>';
+  h+='</div>';
+  if(p.phone) h+='<div class="sub">📞 <a href="tel:'+esc(p.phone)+'" style="color:#8ab4f8">'+esc(p.phone)+'</a></div>';
+  if(p.emergency) h+='<div class="sub">🆘 紧急 '+esc(p.emergency)+'</div>';
+  h+='<div class="sub">🔑 房 '+esc(p.room||p.roomGroup||'-')+'  ·  👥 分组 '+esc(p.campGroup||'待定')+'  ·  小组 '+esc(p.group||'-')+'</div>';
+  if(p.busTo||p.busBack) h+='<div class="sub">🚌 '+(p.busTo?'去程 ':'')+(p.busBack?'返程':'')+'</div>';
+  h+='<div style="margin-top:8px">';
+  (p.statuses||[]).forEach(function(s){
+    h+='<div style="display:flex;gap:8px;padding:3px 0;font-size:13px;align-items:center;border-bottom:1px solid var(--line)">'+
+       '<span style="flex:1">'+esc(s.label)+'</span>'+stateChip(s.state)+'</div>'; });
+  return h+'</div></div>'; }
 
 // ---------- utils ----------
 function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,function(c){

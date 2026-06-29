@@ -29,18 +29,20 @@ const DEFAULT_PASSCODE = 'camp2026';   // change after setup via the Camp menu
 //  day/start/end = the scheduled time window (24h). Shown to organisers in 12h,
 //  and (if ENFORCE_WINDOWS) used to block scans outside the window.
 const CHECKPOINTS = [
-  { key: 'bus_to',   label: '1. 教会乘车报到 Church Bus',       type: 'simple',   day: 1, start: '08:30', end: '09:30' },
-  { key: 'checkin',  label: '2. 会场报到·领房卡 Venue Check-in', type: 'room',     day: 1, start: '15:00', end: '18:30' },
-  { key: 'theme1',   label: '3. 主题信息1 Theme Msg 1',         type: 'simple',   day: 1, start: '20:00', end: '22:15' },
-  { key: 'worship2', label: '4. 敬拜 Day2 Worship',             type: 'simple',   day: 2, start: '09:30', end: '09:50' },
-  { key: 'seminar',  label: '5. 专题讲座 Seminar',              type: 'hall',     day: 2, start: '09:50', end: '11:45' },
-  { key: 'biggame',  label: '6. 大型游戏 Big Game',             type: 'simple',   day: 2, start: '13:30', end: '15:30' },
-  { key: 'bbq',      label: '7. BBQ Dinner',                    type: 'simple',   day: 2, start: '18:30', end: '20:00' },
-  { key: 'devo1',    label: '8. 灵修1 Devotion 1',              type: 'simple',   day: 2, start: '06:30', end: '09:20' },
-  { key: 'devo2',    label: '9. 灵修2 Devotion 2',              type: 'simple',   day: 3, start: '06:30', end: '08:50' },
-  { key: 'theme2',   label: '10. 主题信息2 Theme Msg 2',        type: 'simple',   day: 3, start: '09:10', end: '10:50' },
-  { key: 'checkout', label: '11. 退房·还房卡 Check-out',        type: 'checkout', day: 3, start: '11:15', end: '12:15' },
-  { key: 'bus_back', label: '12. 返程乘车报到 Return Bus',      type: 'simple',   day: 3, start: '12:15', end: '13:00' },
+  { key: 'bus_to',   label: '1. 教会乘车报到 Church Bus',        type: 'simple',   day: 1, start: '08:30', end: '09:30' },
+  { key: 'arrival',  label: '2. 抵达报到 Arrival (手册/名卡)',    type: 'simple',   day: 1, start: '12:00', end: '13:30' },
+  { key: 'icebreak', label: '3. 破冰游戏·分组 Ice-breaker',      type: 'simple',   day: 1, start: '13:30', end: '15:00' },
+  { key: 'checkin',  label: '4. 会场报到·领房卡 Venue Check-in', type: 'room',     day: 1, start: '15:00', end: '18:30' },
+  { key: 'theme1',   label: '5. 主题信息1 Theme Msg 1',          type: 'simple',   day: 1, start: '20:00', end: '22:15' },
+  { key: 'worship2', label: '6. 敬拜 Day2 Worship',              type: 'simple',   day: 2, start: '09:30', end: '09:50' },
+  { key: 'seminar',  label: '7. 专题讲座 Seminar',               type: 'hall',     day: 2, start: '09:50', end: '11:45' },
+  { key: 'biggame',  label: '8. 大型游戏 Big Game',              type: 'simple',   day: 2, start: '13:30', end: '15:30' },
+  { key: 'bbq',      label: '9. BBQ Dinner',                     type: 'simple',   day: 2, start: '18:30', end: '20:00' },
+  { key: 'devo1',    label: '10. 灵修1 Devotion 1',              type: 'simple',   day: 2, start: '06:30', end: '09:20' },
+  { key: 'devo2',    label: '11. 灵修2 Devotion 2',              type: 'simple',   day: 3, start: '06:30', end: '08:50' },
+  { key: 'theme2',   label: '12. 主题信息2 Theme Msg 2',         type: 'simple',   day: 3, start: '09:10', end: '10:50' },
+  { key: 'checkout', label: '13. 退房·还房卡 Check-out',         type: 'checkout', day: 3, start: '11:15', end: '12:15' },
+  { key: 'bus_back', label: '14. 返程乘车报到 Return Bus',       type: 'simple',   day: 3, start: '12:15', end: '13:00' },
 ];
 
 const HALLS = ['Jade Main Hall', 'Sapphire 1', 'Sapphire 2'];
@@ -54,7 +56,9 @@ const WINDOW_GRACE_MIN = 30;     // allow scanning from this many minutes BEFORE
 //   RoomGroup = planned room (e.g. "R01" / a family name). Fill BEFORE camp.
 //   Room      = actual room number. Left blank; auto-stamped at check-in from the
 //               Rooms tab (you type the real number there at 3pm, once per room).
-const PROFILE_COLS = ['ID','Token','Name','Phone','Role','Group','BusTo','BusBack','RoomGroup','Room','RoomNote','Notes'];
+//   Emergency  = 紧急联络人 (name + phone, free text) — shown in 🔎 Lookup.
+//   CampGroup  = 营内分组 (formed at the ice-breaker; follows them to 灵修 etc.). Values TBD.
+const PROFILE_COLS = ['ID','Token','Name','Phone','Emergency','Role','Group','CampGroup','BusTo','BusBack','RoomGroup','Room','RoomNote','Notes'];
 const HALL_COL = 'SeminarHall';   // extra column that stores which hall they attended
 
 // ----------------------------------------------------------------------------
@@ -152,6 +156,7 @@ function doPost(e) {
       case 'scan':   out = recordScan(req); break;
       case 'undo':   out = undoScan(req); break;
       case 'search': out = manualSearch(req); break;
+      case 'lookup': out = lookupPerson(req); break;
       case 'stats':  out = getStats(req); break;
       default:       out = { ok: false, error: 'BAD_ACTION' };
     }
@@ -369,6 +374,62 @@ function manualSearch(req) {
 }
 
 // ----------------------------------------------------------------------------
+// LOOKUP a person — full details + per-activity status (for the 🔎 query screen)
+//   req = { pass, query }   -> up to 8 matches with phone, emergency, room, group,
+//   and each checkpoint's state: 已签到 / 进行中 / 未开始 / 缺席.
+// ----------------------------------------------------------------------------
+function lookupPerson(req) {
+  if (!checkPass(req.pass)) return { ok: false, error: 'AUTH' };
+  const q = String(req.query || '').trim().toLowerCase();
+  if (!q) return { ok: true, results: [] };
+  const ss = SpreadsheetApp.getActive();
+  const sh = ss.getSheetByName(SHEET.ATTENDEES);
+  const data = sh.getDataRange().getValues();
+  const header = data[0]; const idx = {}; header.forEach((h, i) => idx[String(h).trim()] = i);
+  const sched = getSchedule_(ss);
+  const tz = ss.getSpreadsheetTimeZone();
+  const now = Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd HH:mm');
+  const get = (row, name) => (idx[name] !== undefined ? row[idx[name]] : '');
+
+  const out = [];
+  for (let r = 1; r < data.length && out.length < 8; r++) {
+    const id = String(data[r][idx['ID']] || '').toLowerCase();
+    const name = String(data[r][idx['Name']] || '').toLowerCase();
+    const grp = String(get(data[r], 'Group') || '').toLowerCase();
+    const cg = String(get(data[r], 'CampGroup') || '').toLowerCase();
+    if (id.indexOf(q) < 0 && name.indexOf(q) < 0 && grp.indexOf(q) < 0 && cg.indexOf(q) < 0) continue;
+    const row = data[r];
+    const statuses = CHECKPOINTS.map(cp => {
+      const scanned = idx[cp.label] !== undefined && row[idx[cp.label]] !== '' && row[idx[cp.label]] != null;
+      return { key: cp.key, label: cp.label, when: 'D' + cp.day + ' ' + to12h_(cp.start),
+               state: scanStateOf_(cp, sched, scanned, now, tz) };
+    });
+    out.push({
+      id: row[idx['ID']], name: row[idx['Name']], phone: get(row, 'Phone'),
+      emergency: get(row, 'Emergency'), role: get(row, 'Role'), group: get(row, 'Group'),
+      campGroup: get(row, 'CampGroup'), roomGroup: get(row, 'RoomGroup'), room: get(row, 'Room'),
+      busTo: isYes_(get(row, 'BusTo')), busBack: isYes_(get(row, 'BusBack')), statuses: statuses
+    });
+  }
+  return { ok: true, results: out };
+}
+/** done | now | soon | absent  (已签到 / 进行中 / 未开始 / 缺席) */
+function scanStateOf_(cp, sched, scanned, now) {
+  if (scanned) return 'done';
+  const e = (sched && sched.map[cp.key]) ? sched.map[cp.key] : {};
+  const date = e.date || CAMP_DATES[cp.day] || '';
+  if (!date) return 'soon';
+  const startMin = (e.start != null) ? e.start : hhmmToMin_(cp.start);
+  const endMin = (e.end != null) ? e.end : hhmmToMin_(cp.end);
+  const lead = e.lead || defaultLead_(cp);
+  const startStr = date + ' ' + minToHHmm_(startMin - lead);
+  const endStr = date + ' ' + minToHHmm_(endMin);
+  if (now < startStr) return 'soon';
+  if (now > endStr) return 'absent';
+  return 'now';
+}
+
+// ----------------------------------------------------------------------------
 // LIVE STATS for the in-app dashboard
 // ----------------------------------------------------------------------------
 function getStats(req) {
@@ -499,8 +560,8 @@ function setupSheet() {
     at.getRange(1, 1, 1, headers.length).setValues([headers]);
     // a couple of sample rows so you can test immediately
     at.getRange(2, 1, 2, PROFILE_COLS.length).setValues([
-      ['C001','AB12','Sample Attendee 测试','0123456789','Attendee','Group A','Y','Y','R01','','',''],
-      ['C002','CD34','Sample Organiser 测试','0129876543','Organiser','Logistics','N','N','R02','','','']
+      ['C001','AB12','Sample Attendee 测试','0123456789','母亲 Mum 0111','Attendee','Group A','','Y','Y','R01','','',''],
+      ['C002','CD34','Sample Organiser 测试','0129876543','配偶 Spouse 0122','Organiser','Logistics','','N','N','R02','','','']
     ]);
   }
   at.setFrozenRows(1); at.setFrozenColumns(3);

@@ -7,14 +7,16 @@ from openpyxl import Workbook
 from openpyxl.worksheet.datavalidation import DataValidation
 from openpyxl.styles import Font, PatternFill, Alignment
 
-COLS = ['ID','Token','Name','Phone','Role','Group','BusTo','BusBack','RoomGroup','Room','RoomNote','Notes']
+COLS = ['ID','Token','Name','Phone','Emergency','Role','Group','CampGroup','BusTo','BusBack','RoomGroup','Room','RoomNote','Notes']
 HELP = {
  'ID':'Leave blank — auto-generated (C001, C002…)',
  'Token':'Leave blank — auto-generated security code',
  'Name':'Full name (Chinese or English) — REQUIRED',
  'Phone':'Contact number',
+ 'Emergency':'紧急联络人 emergency contact (name + phone)',
  'Role':'Attendee / Organiser / Leader (组长)',
  'Group':'小组 / cell group / family',
+ 'CampGroup':'营内分组 (ice-breaker/devotion group) — fill later, can leave blank',
  'BusTo':'Y if taking the church bus TO the venue, else N',
  'BusBack':'Y if taking the bus BACK to church, else N',
  'RoomGroup':'房间分组 — same code = same room (e.g. R01). Fill BEFORE camp.',
@@ -34,8 +36,8 @@ for i, c in enumerate(COLS, 1):
 
 # example rows
 examples = [
- ['', '', '陈大文 David Chen', '0123456789', 'Attendee', '青年组 Youth', 'Y', 'Y', 'R01', '', '', ''],
- ['', '', '林美丽 Mary Lim',   '0129876543', 'Organiser','后勤 Logistics','N','N','R02','', '', '负责报到 Registration lead'],
+ ['', '', '陈大文 David Chen', '0123456789', '母亲 Mum 0111', 'Attendee', '青年组 Youth', '', 'Y', 'Y', 'R01', '', '', ''],
+ ['', '', '林美丽 Mary Lim',   '0129876543', '配偶 Spouse 0122', 'Organiser','后勤 Logistics','','N','N','R02','', '', '负责报到 Registration lead'],
 ]
 for r, row in enumerate(examples, 3):
     for ci, v in enumerate(row, 1):
@@ -45,9 +47,9 @@ for r, row in enumerate(examples, 3):
 def add_dv(col_letter, values):
     dv = DataValidation(type='list', formula1='"%s"' % ','.join(values), allow_blank=True)
     ws.add_data_validation(dv); dv.add('%s3:%s1000' % (col_letter, col_letter))
-add_dv('E', ['Attendee', 'Organiser', 'Leader'])
-add_dv('G', ['Y', 'N'])
-add_dv('H', ['Y', 'N'])
+add_dv('F', ['Attendee', 'Organiser', 'Leader'])   # Role
+add_dv('I', ['Y', 'N'])                            # BusTo
+add_dv('J', ['Y', 'N'])                            # BusBack
 
 ws.freeze_panes = 'A3'
 

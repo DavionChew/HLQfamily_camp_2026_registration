@@ -9,7 +9,7 @@ import random
 from openpyxl import Workbook
 
 random.seed(42)
-PROFILE = ['ID','Token','Name','Phone','Role','Group','BusTo','BusBack','RoomGroup','Room','RoomNote','Notes']
+PROFILE = ['ID','Token','Name','Phone','Emergency','Role','Group','CampGroup','BusTo','BusBack','RoomGroup','Room','RoomNote','Notes']
 ALPHA = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
 GROUPS = ['青年组', '弟兄组', '姐妹组', '夫妻组', '长青组', '少年组']
 N = 280
@@ -31,7 +31,7 @@ while i <= N:
         if i <= 18: role = 'Organiser'
         elif i <= 36: role = 'Leader'
         rows.append([rid, token(), 'Tester %03d' % i, '01%08d' % (10000000 + i),
-                     role, grp, bus_to, bus_back, rg, '', '', ''])
+                     '紧急 09%07d' % i, role, grp, '', bus_to, bus_back, rg, '', '', ''])
         i += 1
 
 wb = Workbook(); ws = wb.active; ws.title = 'Attendees'
@@ -39,4 +39,5 @@ ws.append(PROFILE)
 for r in rows: ws.append(r)
 wb.save('../samples/mock_280_import.xlsx')
 print('Wrote ../samples/mock_280_import.xlsx  ·  people=%d  rooms=%d' % (len(rows), room - 1))
-print('Bus-to=%d  Organisers/Leaders=%d' % (sum(1 for r in rows if r[6]=='Y'), sum(1 for r in rows if r[4]!='Attendee')))
+bi, ri = PROFILE.index('BusTo'), PROFILE.index('Role')
+print('Bus-to=%d  Organisers/Leaders=%d' % (sum(1 for r in rows if r[bi]=='Y'), sum(1 for r in rows if r[ri]!='Attendee')))
