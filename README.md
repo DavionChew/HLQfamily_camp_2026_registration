@@ -99,11 +99,15 @@ Each carries a scheduled day + time, shown in the dropdown in 12-hour form
   auto-recorded to the selected checkpoint. The same QR is ignored for 3 s to avoid doubles.
 - **Undo a mis-scan:** every confirmation card has **↩︎ 撤销 Undo** which reverses that last
   check-in (for room/checkout it reverses the whole family). Also logged in ScanLog.
-- **Time-window guard (optional):** set `ENFORCE_WINDOWS = true` in `Code.gs` on camp day.
-  Scans then only succeed from **30 min before** a checkpoint's start until its end — which
-  stops accidental scans into the wrong checkpoint. If a session runs late, the screen offers
-  **"仍然记录 Record anyway"**. Keep it `false` while testing (today's date is outside the camp
-  windows, so everything would be blocked otherwise). Times/dates live in `CHECKPOINTS` + `CAMP_DATES`.
+- **Time-window guard (optional, edit from the sheet):** the **Schedule** tab holds each
+  checkpoint's Date / Start / End / "Open mins before". Scans only succeed from *Open-before*
+  minutes ahead of Start until End — stopping accidental scans into the wrong checkpoint. If a
+  session runs late, the screen offers **"仍然记录 Record anyway"**.
+    - **Change a time mid-camp:** just edit the cell on the Schedule tab — it takes effect on
+      the next scan, **no code edit, no redeploy**. Start/End accept `8:00pm` or `20:00`.
+    - **Bus opens earlier:** the two bus rows default **"Open mins before" = 60** (others 30).
+    - **Turn it on for camp:** set the **Enforce time windows? (Y/N)** cell to **Y**. Keep it
+      **N** while testing (today is outside the August windows, so all scans would be blocked).
 - **Wrong ID/Name?** Manual entry never free-types a check-in — you search and tap a person
   (name + ID + group shown), and the big confirmation card shows who you just recorded, so a
   slip is obvious and one tap of Undo fixes it.

@@ -17,7 +17,7 @@
 // ----------------------------------------------------------------------------
 // CONFIG — edit here if you want to rename things
 // ----------------------------------------------------------------------------
-const SHEET = { ATTENDEES: 'Attendees', LOG: 'ScanLog', ROOMS: 'Rooms', DASH: 'Dashboard' };
+const SHEET = { ATTENDEES: 'Attendees', LOG: 'ScanLog', ROOMS: 'Rooms', DASH: 'Dashboard', SCHED: 'Schedule' };
 
 const DEFAULT_PASSCODE = 'camp2026';   // change after setup via the Camp menu
 
@@ -66,15 +66,20 @@ function doGet() {
     .addMetaTag('viewport', 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no');
 }
 
-/** Public config for the UI (no passcode needed — just labels). */
+/** Public config for the UI (no passcode needed — just labels + scheduled times). */
 function getConfig() {
+  const ss = SpreadsheetApp.getActive();
+  const sched = getSchedule_(ss);
   return {
-    checkpoints: CHECKPOINTS.map(c => ({
-      key: c.key, label: c.label, type: c.type,
-      when: 'D' + c.day + ' ' + to12h_(c.start) + '–' + to12h_(c.end)
-    })),
+    checkpoints: CHECKPOINTS.map(c => {
+      const e = sched.map[c.key] || {};
+      const sMin = (e.start != null) ? e.start : hhmmToMin_(c.start);
+      const eMin = (e.end != null) ? e.end : hhmmToMin_(c.end);
+      return { key: c.key, label: c.label, type: c.type,
+               when: 'D' + c.day + ' ' + to12h_(minToHHmm_(sMin)) + '–' + to12h_(minToHHmm_(eMin)) };
+    }),
     halls: HALLS,
-    enforce: ENFORCE_WINDOWS
+    enforce: sched.enforce
   };
 }
 
@@ -86,15 +91,51 @@ function to12h_(hhmm) {
 }
 function hhmmToMin_(hhmm) { const p = String(hhmm).split(':'); return (+p[0]) * 60 + (+p[1]); }
 function minToHHmm_(min) { const h = Math.floor(min / 60), m = min % 60; return ('0' + h).slice(-2) + ':' + ('0' + m).slice(-2); }
-/** Is "now" inside a checkpoint's scan window? Returns {ok, now, range}. */
-function windowCheck_(ss, cp) {
+function defaultLead_(cp) { return (cp.key === 'bus_to' || cp.key === 'bus_back') ? 60 : WINDOW_GRACE_MIN; }
+/** Accepts "20:00", "8:00pm", "8pm", "8:30 PM", or a time/Date cell -> minutes since midnight. */
+function parseTime_(v) {
+  if (v === '' || v == null) return null;
+  if (Object.prototype.toString.call(v) === '[object Date]') return v.getHours() * 60 + v.getMinutes();
+  let s = String(v).trim().toLowerCase().replace(/\s+/g, '');
+  let ap = s.indexOf('pm') > -1 ? 'pm' : (s.indexOf('am') > -1 ? 'am' : null);
+  s = s.replace('am', '').replace('pm', '');
+  const p = s.split(':'); let h = parseInt(p[0], 10), m = p.length > 1 ? parseInt(p[1], 10) : 0;
+  if (isNaN(h)) return null; if (isNaN(m)) m = 0;
+  if (ap === 'pm' && h < 12) h += 12; if (ap === 'am' && h === 12) h = 0;
+  return h * 60 + m;
+}
+function dateStr_(v, tz) {
+  if (Object.prototype.toString.call(v) === '[object Date]') return Utilities.formatDate(v, tz, 'yyyy-MM-dd');
+  return String(v || '').trim();
+}
+/** Read the editable Schedule tab. Returns {map:{key:{date,start,end,lead}}, enforce}. */
+function getSchedule_(ss) {
+  const out = { map: {}, enforce: ENFORCE_WINDOWS };
+  const sh = ss.getSheetByName(SHEET.SCHED);
+  if (!sh) return out;
   const tz = ss.getSpreadsheetTimeZone();
+  const d = sh.getDataRange().getValues();
+  for (let r = 0; r < d.length; r++) {
+    const a = String(d[r][0] || '').trim();
+    if (/^enforce/i.test(a)) { out.enforce = isYes_(d[r][1]); continue; }
+    if (!a || a.toLowerCase() === 'key') continue;
+    out.map[a] = { date: dateStr_(d[r][2], tz), start: parseTime_(d[r][3]), end: parseTime_(d[r][4]), lead: Number(d[r][5]) || 0 };
+  }
+  return out;
+}
+/** Is "now" inside a checkpoint's scan window? Uses Schedule tab, falls back to code. */
+function windowCheck_(ss, cp, sched) {
+  const tz = ss.getSpreadsheetTimeZone();
+  const e = (sched && sched.map[cp.key]) ? sched.map[cp.key] : {};
+  const date = e.date || CAMP_DATES[cp.day] || '';
+  const startMin = (e.start != null) ? e.start : hhmmToMin_(cp.start);
+  const endMin = (e.end != null) ? e.end : hhmmToMin_(cp.end);
+  const lead = e.lead || defaultLead_(cp);
   const now = Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd HH:mm');
-  const date = CAMP_DATES[cp.day] || '';
-  const startStr = date + ' ' + minToHHmm_(hhmmToMin_(cp.start) - WINDOW_GRACE_MIN);
-  const endStr = date + ' ' + cp.end;
+  const startStr = date + ' ' + minToHHmm_(startMin - lead);
+  const endStr = date + ' ' + minToHHmm_(endMin);
   return { ok: (now >= startStr && now <= endStr), now: now,
-           range: 'D' + cp.day + ' ' + to12h_(minToHHmm_(hhmmToMin_(cp.start) - WINDOW_GRACE_MIN)) + '–' + to12h_(cp.end) };
+           range: 'D' + cp.day + ' ' + to12h_(minToHHmm_(startMin - lead)) + '–' + to12h_(minToHHmm_(endMin)) };
 }
 
 /**
@@ -172,9 +213,11 @@ function recordScan(req) {
     const col = idx[cp.label];
     if (col === undefined) return { ok: false, error: 'NO_COL', message: '缺少栏位 Missing column: ' + cp.label };
 
-    // optional time-window guard (catches "wrong checkpoint selected"); allow override with force
-    if (ENFORCE_WINDOWS && cp.start && !req.force) {
-      const w = windowCheck_(ss, cp);
+    // optional time-window guard (catches "wrong checkpoint selected"); allow override with force.
+    // Times + on/off live in the editable Schedule tab, so you can change them mid-camp.
+    const sched = getSchedule_(ss);
+    if (sched.enforce && cp.start && !req.force) {
+      const w = windowCheck_(ss, cp, sched);
       if (!w.ok) return { ok: false, error: 'WINDOW', canForce: true,
         message: '⏰ ' + cp.label + ' 扫描时间为 ' + w.range + '。现在不在时段内。' };
     }
@@ -495,6 +538,21 @@ function setupSheet() {
     rm.getRange('E2').setFormula('=ARRAYFORMULA(IF(A2:A="","",COUNTIFS(Attendees!$' + rgCol + '$2:$' + rgCol + ',A2:A,Attendees!$' + ckCol + '$2:$' + ckCol + ',"<>")))');
     rm.getRange('F2').setFormula('=ARRAYFORMULA(IF(A2:A="","",COUNTIFS(Attendees!$' + rgCol + '$2:$' + rgCol + ',A2:A,Attendees!$' + coCol + '$2:$' + coCol + ',"<>")))');
     rm.setColumnWidth(2, 160); rm.setColumnWidth(3, 200);
+  }
+
+  // ---- Schedule (EDITABLE checkpoint times — change a cell, no redeploy) ----
+  let sc = ss.getSheetByName(SHEET.SCHED) || ss.insertSheet(SHEET.SCHED);
+  if (!sc.getRange(1, 1).getValue()) {
+    sc.getRange(1, 1, 1, 6).setValues([['Key', 'Checkpoint', 'Date (yyyy-mm-dd)', 'Start (e.g. 8:00pm)', 'End', 'Open mins before']]);
+    const rows = CHECKPOINTS.map(c => [c.key, c.label, CAMP_DATES[c.day] || '', to12h_(c.start), to12h_(c.end), defaultLead_(c)]);
+    sc.getRange(2, 1, rows.length, 6).setValues(rows);
+    const er = rows.length + 3;
+    sc.getRange(er, 1).setValue('Enforce time windows? (Y/N)').setFontWeight('bold');
+    sc.getRange(er, 2).setValue('N').setFontWeight('bold').setBackground('#fff3cd');
+    sc.getRange(er + 1, 1).setValue('↑ set to Y on camp day · 改时间只需改上面格子，立即生效（无需重新部署）').setFontColor('#666');
+    sc.getRange(1, 1, 1, 6).setFontWeight('bold').setBackground('#5f6368').setFontColor('#fff');
+    sc.getRange(2, 3, rows.length, 3).setNumberFormat('@');   // keep date/time as typed text
+    sc.setFrozenRows(1); sc.setColumnWidth(2, 230); sc.setColumnWidth(3, 150); sc.setColumnWidth(4, 140); sc.setColumnWidth(5, 120);
   }
 
   // ---- Dashboard ----
