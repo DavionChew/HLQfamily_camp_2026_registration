@@ -645,7 +645,35 @@ function onOpen() {
     .addItem('② Change organiser passcode', 'menuSetPasscode_')
     .addItem('③ Save check-in link', 'menuSetUrl_')
     .addItem('④ Show check-in link', 'menuShowUrl_')
+    .addSeparator()
+    .addItem('🧹 Clear ALL check-ins (test reset)', 'menuClearCheckins_')
     .addToUi();
+}
+/** Reset between test runs / before the real camp: clears every scan timestamp, hall,
+ *  auto-stamped room number and the ScanLog — but KEEPS people, RoomGroups and room numbers. */
+function menuClearCheckins_() {
+  const ui = SpreadsheetApp.getUi();
+  if (ui.alert('清除所有签到 Clear ALL check-ins?',
+      '保留人员、房间分组、房号；清空所有打卡时间 / Hall / 已盖房号 / ScanLog。用于测试重置。\n\nKeep people & rooms; wipe all scans. Continue?',
+      ui.ButtonSet.YES_NO) !== ui.Button.YES) return;
+  clearCheckins_();
+  ui.alert('✅ 已清除 Cleared. 人员名单保留。');
+}
+function clearCheckins_() {
+  const ss = SpreadsheetApp.getActive();
+  const at = ss.getSheetByName(SHEET.ATTENDEES);
+  const header = at.getRange(1, 1, 1, at.getLastColumn()).getValues()[0];
+  const idx = {}; header.forEach((h, i) => idx[String(h).trim()] = i);
+  const lastRow = at.getLastRow();
+  if (lastRow > 1) {
+    const cols = [];
+    CHECKPOINTS.forEach(c => { if (idx[c.label] !== undefined) cols.push(idx[c.label]); });
+    if (idx[HALL_COL] !== undefined) cols.push(idx[HALL_COL]);
+    if (idx['Room'] !== undefined) cols.push(idx['Room']);   // auto-stamped at check-in
+    cols.forEach(c => at.getRange(2, c + 1, lastRow - 1, 1).clearContent());
+  }
+  const lg = ss.getSheetByName(SHEET.LOG);
+  if (lg && lg.getLastRow() > 1) lg.getRange(2, 1, lg.getLastRow() - 1, lg.getLastColumn()).clearContent();
 }
 function menuSetPasscode_() {
   const ui = SpreadsheetApp.getUi();
