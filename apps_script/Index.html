@@ -209,9 +209,6 @@ function render(r){
   if(r.type==='hall' && r.hall) html+='<span class="pill hall">'+esc(r.hall)+'</span>';
   if(r.type==='checkout') html+='<div class="room">🔑 收回房卡 Return key</div>';
   if((r.type==='room'||r.type==='checkout') && r.family>1) html+='<div class="sub">👪 同房 '+r.family+' 人已一起登记 whole room done</div>';
-  var rl=String(r.role||'').toLowerCase();
-  if(rl.indexOf('organ')>-1) html+='<span class="pill org">同工 Organiser</span>';
-  else if(rl.indexOf('lead')>-1) html+='<span class="pill org">组长 Leader</span>';
   if(r.busBack && r.type==='checkout') html+='<div class="sub">🚌 返程乘车 — remind to gather for bus</div>';
   if(r.duplicate && r.prevTime) html+='<div class="sub">first at '+r.prevTime+'</div>';
   html+='<div class="sub">'+r.time+'</div>';
@@ -283,26 +280,27 @@ function openLookup(){ $('lookupOv').style.display='block'; setTimeout(function(
 function closeLookup(){ $('lookupOv').style.display='none'; }
 function lookupDebounced(){ clearTimeout(lkt); lkt=setTimeout(doLookup,250); }
 function doLookup(){ var q=$('lookupQ').value.trim();
-  if(!q){ $('lookupBody').innerHTML='<span class="muted">输入 ID、名字或分组以查询</span>'; return; }
-  gcall('lookupPerson',{pass:load('pass'), query:q}).then(function(r){
-    if(!r.ok){ $('lookupBody').innerHTML='auth error'; return; }
-    if(!r.results.length){ $('lookupBody').innerHTML='<span class="muted">No match</span>'; return; }
-    var h=''; r.results.forEach(function(p){ h+=personCard(p); }); $('lookupBody').innerHTML=h;
-  }).catch(function(){ $('lookupBody').innerHTML='<span class="muted">Network error</span>'; }); }
+  if(!q){ $('lookupBody').innerHTML='<span class="muted">输入 ID、名字或组别以查询</span>'; return; }
+  gcall('lookupPerson',{pass:load('pass'), query:q}).then(renderLookup).catch(lookupErr); }
+function filterGroup(g){ $('lookupQ').value=g;
+  gcall('lookupPerson',{pass:load('pass'), exactGroup:g}).then(renderLookup).catch(lookupErr); }
+function lookupErr(){ $('lookupBody').innerHTML='<span class="muted">⚠️ 连不上服务器，或代码未保存最新版</span>'; }
+function renderLookup(r){
+  if(!r.ok){ $('lookupBody').innerHTML='<span class="muted">查询失败 '+esc(r.error||'')+' '+esc(r.message||'')+'</span>'; return; }
+  if(!r.results.length){ $('lookupBody').innerHTML='<span class="muted">No match</span>'; return; }
+  var h=''; if(r.results.length>1) h+='<div class="muted" style="margin-bottom:6px">'+r.results.length+' 人</div>';
+  r.results.forEach(function(p){ h+=personCard(p); }); $('lookupBody').innerHTML=h; }
 function stateChip(s){
   var m={done:['✅已签到','#34a853'], now:['🟡进行中','#f9a825'], soon:['⬜未开始','#6b7280'], absent:['❌缺席','#c62828']};
   var x=m[s]||m.soon;
   return '<span style="font-size:11px;padding:2px 7px;border-radius:6px;background:'+x[1]+';color:#fff">'+x[0]+'</span>'; }
 function personCard(p){
-  var rl=String(p.role||'').toLowerCase();
   var h='<div class="card"><div style="font-size:20px;font-weight:800">'+esc(p.name)+
-    ' <span class="muted" style="font-size:13px">'+esc(p.id)+'</span>';
-  if(rl.indexOf('organ')>-1) h+=' <span class="pill org">同工</span>';
-  else if(rl.indexOf('lead')>-1) h+=' <span class="pill org">组长</span>';
-  h+='</div>';
+    ' <span class="muted" style="font-size:13px">'+esc(p.id)+'</span></div>';
   if(p.phone) h+='<div class="sub">📞 <a href="tel:'+esc(p.phone)+'" style="color:#8ab4f8">'+esc(p.phone)+'</a></div>';
   if(p.emergency) h+='<div class="sub">🆘 紧急 '+esc(p.emergency)+'</div>';
-  h+='<div class="sub">🔑 房 '+esc(p.room||p.roomGroup||'-')+'  ·  👥 分组 '+esc(p.campGroup||'待定')+'  ·  小组 '+esc(p.group||'-')+'</div>';
+  var gtxt = p.group ? '<a onclick="filterGroup(\''+esc(p.group)+'\')" style="color:#8ab4f8;cursor:pointer">'+esc(p.group)+' ›</a>' : '-';
+  h+='<div class="sub">🔑 房 '+esc(p.room||p.roomGroup||'-')+'  ·  👥 组别 '+gtxt+'</div>';
   if(p.busTo||p.busBack) h+='<div class="sub">🚌 '+(p.busTo?'去程 ':'')+(p.busBack?'返程':'')+'</div>';
   h+='<div style="margin-top:8px">';
   (p.statuses||[]).forEach(function(s){

@@ -62,7 +62,7 @@ cd tools
 python3 make_template.py                       # (optional) regenerate the blank template
 python3 generate_nametags.py ../data/your_list.xlsx --event "Your Camp 2026"
 ```
-Produces `nametags.pdf` + `attendees_import.xlsx`. Paste columns **A:N** of the
+Produces `nametags.pdf` + `attendees_import.xlsx`. Paste columns **A:M** of the
 import file into the Sheet's **Attendees** tab at row 2.
 
 **3. Print tags** — `nametags.pdf` is 4/A4-page. Print **double-sided, flip on LONG edge**,
@@ -119,14 +119,21 @@ Green = checked in (room shows at check-in); amber = already done; 🔁 = hall s
 **📊 Stats** shows live counts on any phone; the **Dashboard** tab shows the full picture.
 
 **🔎 查询 Lookup** — search an ID / name / group to pull up a person's **phone, emergency
-contact, room, 营内分组 (CampGroup), 小组**, and their **status at every activity**:
+contact, room, 组别**, and their **status at every activity**:
 ✅已签到 (scanned) · 🟡进行中 (in progress) · ⬜未开始 (not started) · ❌缺席 (window ended, no scan).
-Statuses use the Schedule-tab times, so they're meaningful only when those times/dates are set.
+Tap a person's **组别** to list everyone in that group with their statuses. Statuses use the
+Schedule-tab times, so they're meaningful only once those times/dates are set.
 
-### Two extra properties (reserved)
-- **CampGroup** 营内分组 — the group formed at the ice-breaker that follows people to 灵修 etc.
-  Values TBD; fill the column when your team decides the grouping.
+### Grouping & properties
+- **Group** 组别 — the **single** camp activity group (formed at the ice-breaker, follows people
+  to 灵修 etc.). Fill it when your team decides the grouping; the Dashboard shows per-group
+  attendance and Lookup can filter by it. (There is no separate CampGroup — one grouping only.)
 - **Emergency** 紧急联络人 — per-person emergency contact (name + phone), shown in Lookup.
+- **Role** — Attendee/Organiser/Leader is kept for counts but **not displayed** on scans/lookup.
+
+### Dashboard additions
+- **按组别 By Group** — members + 灵修1/灵修2 attendance per Group (auto-lists every Group value).
+- **🚩 未抵达 Not arrived** — who hasn't done the D1 12:00 抵达报到 yet.
 
 ## Live "who's outstanding" views (Dashboard tab + 📊 Stats)
 Both update automatically as people are scanned:

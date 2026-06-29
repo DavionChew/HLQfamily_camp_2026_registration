@@ -26,7 +26,7 @@ from reportlab.pdfbase.cidfonts import UnicodeCIDFont
 pdfmetrics.registerFont(UnicodeCIDFont('STSong-Light'))   # built-in CJK font (Chinese OK)
 FONT = 'STSong-Light'
 
-PROFILE = ['ID','Token','Name','Phone','Emergency','Role','Group','CampGroup','BusTo','BusBack','RoomGroup','Room','RoomNote','Notes']
+PROFILE = ['ID','Token','Name','Phone','Emergency','Role','Group','BusTo','BusBack','RoomGroup','Room','RoomNote','Notes']
 TOKEN_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'   # no 0/O/1/I confusion
 # Public schedule/info page the QR opens when scanned by a normal phone camera.
 DEFAULT_INFO_URL = 'https://davionchew.github.io/HLQfamily_camp_2026_registration/info.html'

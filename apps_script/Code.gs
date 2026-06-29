@@ -56,9 +56,10 @@ const WINDOW_GRACE_MIN = 30;     // allow scanning from this many minutes BEFORE
 //   RoomGroup = planned room (e.g. "R01" / a family name). Fill BEFORE camp.
 //   Room      = actual room number. Left blank; auto-stamped at check-in from the
 //               Rooms tab (you type the real number there at 3pm, once per room).
-//   Emergency  = 紧急联络人 (name + phone, free text) — shown in 🔎 Lookup.
-//   CampGroup  = 营内分组 (formed at the ice-breaker; follows them to 灵修 etc.). Values TBD.
-const PROFILE_COLS = ['ID','Token','Name','Phone','Emergency','Role','Group','CampGroup','BusTo','BusBack','RoomGroup','Room','RoomNote','Notes'];
+//   Emergency = 紧急联络人 (name + phone) — shown in 🔎 Lookup.
+//   Group     = 组别 / 营内分组 (the camp activity group; follows them to 灵修 etc.).
+//               This is the ONE grouping used everywhere (no separate CampGroup).
+const PROFILE_COLS = ['ID','Token','Name','Phone','Emergency','Role','Group','BusTo','BusBack','RoomGroup','Room','RoomNote','Notes'];
 const HALL_COL = 'SeminarHall';   // extra column that stores which hall they attended
 
 // ----------------------------------------------------------------------------
@@ -391,23 +392,26 @@ function lookupPerson(req) {
   const now = Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd HH:mm');
   const get = (row, name) => (idx[name] !== undefined ? row[idx[name]] : '');
 
+  // exact group match (e.g. tapping a group chip) returns the whole group; otherwise up to 8
+  const exactGroup = String(req.exactGroup || '').trim().toLowerCase();
+  const limit = exactGroup ? 60 : 8;
   const out = [];
-  for (let r = 1; r < data.length && out.length < 8; r++) {
+  for (let r = 1; r < data.length && out.length < limit; r++) {
     const id = String(data[r][idx['ID']] || '').toLowerCase();
     const name = String(data[r][idx['Name']] || '').toLowerCase();
     const grp = String(get(data[r], 'Group') || '').toLowerCase();
-    const cg = String(get(data[r], 'CampGroup') || '').toLowerCase();
-    if (id.indexOf(q) < 0 && name.indexOf(q) < 0 && grp.indexOf(q) < 0 && cg.indexOf(q) < 0) continue;
+    if (exactGroup) { if (grp !== exactGroup) continue; }
+    else if (id.indexOf(q) < 0 && name.indexOf(q) < 0 && grp.indexOf(q) < 0) continue;
     const row = data[r];
     const statuses = CHECKPOINTS.map(cp => {
       const scanned = idx[cp.label] !== undefined && row[idx[cp.label]] !== '' && row[idx[cp.label]] != null;
       return { key: cp.key, label: cp.label, when: 'D' + cp.day + ' ' + to12h_(cp.start),
-               state: scanStateOf_(cp, sched, scanned, now, tz) };
+               state: scanStateOf_(cp, sched, scanned, now) };
     });
     out.push({
       id: row[idx['ID']], name: row[idx['Name']], phone: get(row, 'Phone'),
-      emergency: get(row, 'Emergency'), role: get(row, 'Role'), group: get(row, 'Group'),
-      campGroup: get(row, 'CampGroup'), roomGroup: get(row, 'RoomGroup'), room: get(row, 'Room'),
+      emergency: get(row, 'Emergency'), group: get(row, 'Group'),
+      roomGroup: get(row, 'RoomGroup'), room: get(row, 'Room'),
       busTo: isYes_(get(row, 'BusTo')), busBack: isYes_(get(row, 'BusBack')), statuses: statuses
     });
   }
@@ -560,8 +564,8 @@ function setupSheet() {
     at.getRange(1, 1, 1, headers.length).setValues([headers]);
     // a couple of sample rows so you can test immediately
     at.getRange(2, 1, 2, PROFILE_COLS.length).setValues([
-      ['C001','AB12','Sample Attendee 测试','0123456789','母亲 Mum 0111','Attendee','Group A','','Y','Y','R01','','',''],
-      ['C002','CD34','Sample Organiser 测试','0129876543','配偶 Spouse 0122','Organiser','Logistics','','N','N','R02','','','']
+      ['C001','AB12','Sample Attendee 测试','0123456789','母亲 Mum 0111','Attendee','A 组','Y','Y','R01','','',''],
+      ['C002','CD34','Sample Organiser 测试','0129876543','配偶 Spouse 0122','Organiser','B 组','N','N','R02','','','']
     ]);
   }
   at.setFrozenRows(1); at.setFrozenColumns(3);
@@ -664,6 +668,20 @@ function buildDashboard_(ss, headers) {
     d.getRange(hr + 1 + i, 2).setFormula('=COUNTIF(Attendees!$' + hCol + '$2:$' + hCol + ',"' + h + '")');
   });
 
+  // ===== 按组别 By Group (members + devotion attendance). Auto-lists every Group value. =====
+  const G = colOf('Group');
+  const devo1 = colOf(CHECKPOINTS.find(c => c.key === 'devo1').label);
+  const devo2 = colOf(CHECKPOINTS.find(c => c.key === 'devo2').label);
+  const gr = hr + HALLS.length + 2;
+  d.getRange(gr, 1, 1, 4).setValues([['组别 Group', '人数 Members', '灵修1 到', '灵修2 到']])
+    .setFontWeight('bold').setBackground('#34a853').setFontColor('#fff');
+  const aRef = 'A' + (gr + 1) + '#';
+  const gRng = 'Attendees!$' + G + '$2:$' + G;
+  d.getRange(gr + 1, 1).setFormula('=IFERROR(SORT(UNIQUE(FILTER(' + gRng + ', ' + gRng + '<>""))), "（Group 待填 — fill the Group column）")');
+  d.getRange(gr + 1, 2).setFormula('=ARRAYFORMULA(IF(' + aRef + '="","",IFERROR(COUNTIF(' + gRng + ', ' + aRef + '),0)))');
+  d.getRange(gr + 1, 3).setFormula('=ARRAYFORMULA(IF(' + aRef + '="","",IFERROR(COUNTIFS(' + gRng + ', ' + aRef + ', Attendees!$' + devo1 + '$2:$' + devo1 + ', "<>"),0)))');
+  d.getRange(gr + 1, 4).setFormula('=ARRAYFORMULA(IF(' + aRef + '="","",IFERROR(COUNTIFS(' + gRng + ', ' + aRef + ', Attendees!$' + devo2 + '$2:$' + devo2 + ', "<>"),0)))');
+
   // ===== Outstanding trackers — the two live lists you watch =====
   const nameCol = colOf('Name'), grpCol = colOf('Group'), rgCol = colOf('RoomGroup');
   const busToFlag = colOf('BusTo'), busBackFlag = colOf('BusBack');
@@ -693,7 +711,14 @@ function buildDashboard_(ss, headers) {
   d.getRange('L5').setFormula('="已上车 " & COUNTIFS(' + rng(busBackFlag) + ',"Y",' + rng(busBackScan) + ',"<>") & " / " & COUNTIF(' + rng(busBackFlag) + ',"Y")').setFontWeight('bold');
   d.getRange('L6').setFormula('=IFERROR(FILTER(' + rng(nameCol) + '&" · "&' + rng(grpCol) + ', ' + rng(busBackFlag) + '="Y", ' + rng(busBackScan) + '=""), "✅ 全到齐 All aboard")');
 
-  d.setColumnWidth(1, 230); d.setColumnWidth(6, 230); d.setColumnWidth(8, 250); d.setColumnWidth(10, 250); d.setColumnWidth(12, 230);
+  // 🚩 抵达报到 — 还没出现的人 (全员)
+  const arrivalCol = colOf(CHECKPOINTS.find(c => c.key === 'arrival').label);
+  d.getRange('N4').setValue('🚩 未抵达 Not arrived (报到)').setFontWeight('bold').setBackground('#fbbc04');
+  d.getRange('N5').setFormula('="已抵达 " & COUNTA(' + rng(arrivalCol) + ') & " / " & ' + totalRef).setFontWeight('bold');
+  d.getRange('N6').setFormula('=IFERROR(FILTER(' + rng(nameCol) + '&" · "&' + rng(grpCol) + ', ' + rng(arrivalCol) + '="", ' + rng(idCol) + '<>""), "✅ 全部抵达 All arrived")');
+
+  d.setColumnWidth(1, 230); d.setColumnWidth(6, 230); d.setColumnWidth(8, 250); d.setColumnWidth(10, 250);
+  d.setColumnWidth(12, 230); d.setColumnWidth(14, 230);
   d.setFrozenRows(4);
 }
 
