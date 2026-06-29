@@ -273,6 +273,7 @@ function openStats(){ $('statsOv').style.display='block'; $('statsBody').innerHT
          '<td class="n">'+x.count+'</td><td class="n">'+pct+'%</td></tr>'; });
     h+='</table>';
     h+=pendingBlock('🚌 去程未上车 Bus to venue', r.busTo, 'busTo');
+    h+=pendingBlock('🚩 未抵达 Not arrived (报到)', r.arrival, 'arrival');
     h+=pendingBlock('🔑 未领房卡 No key yet (by room)', r.keyOut, 'keyOut');
     h+=pendingBlock('🔑 未还房卡 Key not returned (by room)', r.keyReturn, 'keyRet');
     h+=pendingBlock('🚌 返程未上车 Return bus', r.busBack, 'busBack');

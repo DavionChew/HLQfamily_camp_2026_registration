@@ -464,16 +464,20 @@ function getStats(req) {
 
   // ---- outstanding lists ----
   const labelOf = k => (CHECKPOINTS.find(c => c.key === k) || {}).label;
-  const busToCol = idx[labelOf('bus_to')], busBackCol = idx[labelOf('bus_back')];
+  const busToCol = idx[labelOf('bus_to')], busBackCol = idx[labelOf('bus_back')], arrivalCol = idx[labelOf('arrival')];
   const nm = i => String(data[i][idx['Name']] || '');
   const gp = i => String(data[i][idx['Group']] || '');
   const isDone = v => v !== '' && v != null;
 
-  // bus is PER PERSON (everyone incl. kids is scanned)
+  // bus is PER PERSON (everyone incl. kids is scanned); arrival is EVERYONE
   const busTo = { total: 0, done: 0, pending: [] };
   const busBack = { total: 0, done: 0, pending: [] };
+  const arrival = { total: 0, done: 0, pending: [] };
   for (let r = 1; r < data.length; r++) {
     if (!String(data[r][idx['ID']]).trim()) continue;
+    arrival.total++;
+    if (arrivalCol !== undefined && isDone(data[r][arrivalCol])) arrival.done++;
+    else arrival.pending.push(nm(r) + (gp(r) ? ' · ' + gp(r) : ''));
     if (isYes_(data[r][idx['BusTo']])) {
       busTo.total++;
       if (busToCol !== undefined && isDone(data[r][busToCol])) busTo.done++;
@@ -503,7 +507,7 @@ function getStats(req) {
   }
 
   return { ok: true, total: total, organisers: organisers, rows: rows, halls: hallCounts,
-           busTo: busTo, busBack: busBack, keyOut: keyOut, keyReturn: keyReturn,
+           arrival: arrival, busTo: busTo, busBack: busBack, keyOut: keyOut, keyReturn: keyReturn,
            updated: fmt_(new Date(), ss.getSpreadsheetTimeZone()) };
 }
 
