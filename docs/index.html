@@ -189,7 +189,9 @@ function startCam(){
 function stopCam(){ if(html5&&scanning){ html5.stop().then(function(){ scanning=false;
   $('camBtn').textContent='📷 Start camera 开始扫描'; $('camBtn').classList.remove('red'); }); } }
 function onDecode(text){
-  var now=Date.now(); if(text===lastCode && now-lastAt<3000) return;   // debounce
+  var now=Date.now();
+  if(now-lastAt<1000) return;                       // global cooldown — avoid rapid multi-scan
+  if(text===lastCode && now-lastAt<4000) return;    // same code: ignore for 4s
   lastCode=text; lastAt=now; submit(text);
 }
 
